@@ -1,0 +1,1 @@
+﻿# FinWise – Intelligent Financial Advisor
