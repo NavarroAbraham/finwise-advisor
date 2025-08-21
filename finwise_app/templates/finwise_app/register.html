@@ -1,0 +1,29 @@
+{% extends 'finwise_app/base.html' %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-6 col-lg-4">
+    <h2 class="mb-3 h4">Create account</h2>
+    <form method="post" class="vstack gap-3">
+      {% csrf_token %}
+      <div>
+        <label class="form-label" for="username">Username</label>
+        <input class="form-control" type="text" name="username" id="username" required>
+      </div>
+      <div>
+        <label class="form-label" for="email">Email (optional)</label>
+        <input class="form-control" type="email" name="email" id="email">
+      </div>
+      <div>
+        <label class="form-label" for="password">Password</label>
+        <input class="form-control" type="password" name="password" id="password" required>
+      </div>
+      <div>
+        <label class="form-label" for="confirm_password">Confirm Password</label>
+        <input class="form-control" type="password" name="confirm_password" id="confirm_password" required>
+      </div>
+      <button class="btn btn-primary" type="submit">Register</button>
+      <p class="mt-2 mb-0 text-muted">Already have an account? <a href="{% url 'login' %}">Login</a></p>
+    </form>
+  </div>
+</div>
+{% endblock %}

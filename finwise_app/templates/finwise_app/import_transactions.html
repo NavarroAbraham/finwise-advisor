@@ -1,0 +1,20 @@
+{% extends 'finwise_app/base.html' %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-8 col-lg-6">
+    <h2 class="h4 mb-3">Import Transactions (OFX 2.x)</h2>
+    <form method="post" enctype="multipart/form-data" class="vstack gap-3">
+      {% csrf_token %}
+      <div>
+        <label class="form-label" for="ofx">OFX file</label>
+        <input class="form-control" type="file" name="ofx_file" id="ofx" accept=".ofx,application/x-ofx,application/ofx,application/xml" required />
+      </div>
+      <div>
+        <button class="btn btn-primary" type="submit">Upload and Import</button>
+        <a class="btn btn-link" href="{% url 'dashboard' %}">Cancel</a>
+      </div>
+    </form>
+  </div>
+  
+</div>
+{% endblock %}
