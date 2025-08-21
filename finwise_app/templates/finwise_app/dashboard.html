@@ -1,0 +1,79 @@
+{% extends 'finwise_app/base.html' %}
+{% block content %}
+<div class="d-flex align-items-center justify-content-between">
+	<h1 class="h3">Dashboard</h1>
+	<a class="btn btn-primary" href="{% url 'import_transactions' %}">Import OFX</a>
+  
+</div>
+<p class="text-muted">Welcome to your dashboard.</p>
+<div class="row" id="summary">
+	<div class="col-md-6">
+		<div class="card mb-3">
+			<div class="card-header">Accounts</div>
+			<div class="card-body p-0">
+				{% if accounts %}
+				<div class="table-responsive">
+					<table class="table table-sm mb-0">
+						<thead>
+							<tr>
+								<th>Name</th>
+								<th>Type</th>
+								<th>Bank ID</th>
+								<th>Account ID</th>
+							</tr>
+						</thead>
+						<tbody>
+							{% for a in accounts %}
+							<tr>
+								<td>{{ a.name|default:'—' }}</td>
+								<td>{{ a.get_type_display }}</td>
+								<td>{{ a.bank_id|default:'—' }}</td>
+								<td><code>{{ a.account_id }}</code></td>
+							</tr>
+							{% endfor %}
+						</tbody>
+					</table>
+				</div>
+				{% else %}
+					<p class="m-3 text-muted">No accounts yet. Try importing an OFX file.</p>
+				{% endif %}
+			</div>
+		</div>
+	</div>
+	<div class="col-md-6">
+		<div class="card mb-3">
+			<div class="card-header">Recent Transactions</div>
+			<div class="card-body p-0">
+				{% if recent %}
+				<div class="table-responsive">
+					<table class="table table-sm mb-0">
+						<thead>
+							<tr>
+								<th>Date</th>
+								<th>Account</th>
+								<th>Type</th>
+								<th class="text-end">Amount</th>
+								<th>Name/Memo</th>
+							</tr>
+						</thead>
+						<tbody>
+							{% for t in recent %}
+							<tr>
+								<td>{{ t.posted_date|date:'Y-m-d' }}</td>
+								<td>{{ t.account.name|default:t.account.account_id }}</td>
+								<td>{{ t.trntype }}</td>
+								<td class="text-end">{{ t.amount }}</td>
+								<td>{{ t.name|default:t.memo }}</td>
+							</tr>
+							{% endfor %}
+						</tbody>
+					</table>
+				</div>
+				{% else %}
+					<p class="m-3 text-muted">No transactions yet.</p>
+				{% endif %}
+			</div>
+		</div>
+	</div>
+</div>
+{% endblock %}
