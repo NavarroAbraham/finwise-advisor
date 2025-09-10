@@ -1,11 +1,62 @@
 {% extends 'finwise_app/base.html' %}
+{% load custom_filters %}
 {% block content %}
 <div class="d-flex align-items-center justify-content-between">
 	<h1 class="h3">Dashboard</h1>
-	<a class="btn btn-primary" href="{% url 'import_transactions' %}">Import OFX</a>
-  
+	<div>
+		<a class="btn btn-outline-primary me-2" href="{% url 'budgets' %}">Budgets</a>
+		<a class="btn btn-primary" href="{% url 'import_transactions' %}">Import OFX</a>
+	</div>
 </div>
 <p class="text-muted">Welcome to your dashboard.</p>
+
+{% if budget_summary %}
+<!-- Budget Summary Row -->
+<div class="row mb-4">
+	<div class="col-12">
+		<div class="card">
+			<div class="card-header d-flex justify-content-between align-items-center">
+				<span>Budget Summary - {{ budget_summary.month|default:"Current Month" }}</span>
+				<a href="{% url 'budgets' %}" class="btn btn-sm btn-outline-primary">Manage Budgets</a>
+			</div>
+			<div class="card-body">
+				<div class="row">
+					<div class="col-md-3">
+						<div class="text-center">
+							<h5 class="text-primary">${{ budget_summary.total_budgeted|floatformat:2 }}</h5>
+							<small class="text-muted">Total Budgeted</small>
+						</div>
+					</div>
+					<div class="col-md-3">
+						<div class="text-center">
+							<h5 class="text-warning">${{ budget_summary.total_spent|floatformat:2 }}</h5>
+							<small class="text-muted">Total Spent</small>
+						</div>
+					</div>
+					<div class="col-md-3">
+						<div class="text-center">
+							<h5 class="text-success">${{ budget_summary.total_budgeted|add:budget_summary.total_spent|mul:-1|floatformat:2 }}</h5>
+							<small class="text-muted">Remaining</small>
+						</div>
+					</div>
+					<div class="col-md-3">
+						<div class="text-center">
+							{% if budget_summary.over_threshold_count > 0 %}
+								<h5 class="text-danger">{{ budget_summary.over_threshold_count }}</h5>
+								<small class="text-muted">Over 80%</small>
+							{% else %}
+								<h5 class="text-success">✓</h5>
+								<small class="text-muted">All Good</small>
+							{% endif %}
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+{% endif %}
+
 <div class="row" id="summary">
 	<div class="col-md-6">
 		<div class="card mb-3">
@@ -42,7 +93,10 @@
 	</div>
 	<div class="col-md-6">
 		<div class="card mb-3">
-			<div class="card-header">Recent Transactions</div>
+			<div class="card-header d-flex justify-content-between align-items-center">
+				<span>Recent Transactions</span>
+				<a href="{% url 'categories' %}" class="btn btn-sm btn-outline-secondary">Categories</a>
+			</div>
 			<div class="card-body p-0">
 				{% if recent %}
 				<div class="table-responsive">
@@ -51,7 +105,7 @@
 							<tr>
 								<th>Date</th>
 								<th>Account</th>
-								<th>Type</th>
+								<th>Category</th>
 								<th class="text-end">Amount</th>
 								<th>Name/Memo</th>
 							</tr>
@@ -59,11 +113,21 @@
 						<tbody>
 							{% for t in recent %}
 							<tr>
-								<td>{{ t.posted_date|date:'Y-m-d' }}</td>
-								<td>{{ t.account.name|default:t.account.account_id }}</td>
-								<td>{{ t.trntype }}</td>
-								<td class="text-end">{{ t.amount }}</td>
-								<td>{{ t.name|default:t.memo }}</td>
+								<td>{{ t.posted_date|date:'M j' }}</td>
+								<td>{{ t.account.name|default:t.account.account_id|truncatechars:15 }}</td>
+								<td>
+									{% if t.category %}
+										<span class="badge" style="background-color: {{ t.category.color }}; color: white; font-size: 0.7em;">
+											{{ t.category.name|truncatechars:10 }}
+										</span>
+									{% else %}
+										<span class="badge bg-light text-dark" style="font-size: 0.7em;">None</span>
+									{% endif %}
+								</td>
+								<td class="text-end {% if t.amount < 0 %}text-danger{% else %}text-success{% endif %}">
+									{{ t.amount|floatformat:2 }}
+								</td>
+								<td>{{ t.name|default:t.memo|truncatechars:20 }}</td>
 							</tr>
 							{% endfor %}
 						</tbody>
