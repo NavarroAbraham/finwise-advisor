@@ -22,30 +22,35 @@
 			<div class="card-body">
 				<div class="row">
 					<div class="col-md-3">
-						<div class="text-center">
-							<h5 class="text-primary">${{ budget_summary.total_budgeted|floatformat:2 }}</h5>
+						<div class="text-center p-2">
+							<i class="bi bi-wallet2 text-primary mb-2" style="font-size: 1.5rem;"></i>
+							<h5 class="text-primary mb-1">${{ budget_summary.total_budgeted|floatformat:2 }}</h5>
 							<small class="text-muted">Total Budgeted</small>
 						</div>
 					</div>
 					<div class="col-md-3">
-						<div class="text-center">
-							<h5 class="text-warning">${{ budget_summary.total_spent|floatformat:2 }}</h5>
+						<div class="text-center p-2">
+							<i class="bi bi-credit-card text-warning mb-2" style="font-size: 1.5rem;"></i>
+							<h5 class="text-warning mb-1">${{ budget_summary.total_spent|floatformat:2 }}</h5>
 							<small class="text-muted">Total Spent</small>
 						</div>
 					</div>
 					<div class="col-md-3">
-						<div class="text-center">
-							<h5 class="text-success">${{ budget_summary.total_budgeted|add:budget_summary.total_spent|mul:-1|floatformat:2 }}</h5>
+						<div class="text-center p-2">
+							<i class="bi bi-piggy-bank text-success mb-2" style="font-size: 1.5rem;"></i>
+							<h5 class="text-success mb-1">${{ budget_summary.total_budgeted|add:budget_summary.total_spent|mul:-1|floatformat:2 }}</h5>
 							<small class="text-muted">Remaining</small>
 						</div>
 					</div>
 					<div class="col-md-3">
-						<div class="text-center">
+						<div class="text-center p-2">
 							{% if budget_summary.over_threshold_count > 0 %}
-								<h5 class="text-danger">{{ budget_summary.over_threshold_count }}</h5>
+								<i class="bi bi-exclamation-triangle text-danger mb-2" style="font-size: 1.5rem;"></i>
+								<h5 class="text-danger mb-1">{{ budget_summary.over_threshold_count }}</h5>
 								<small class="text-muted">Over 80%</small>
 							{% else %}
-								<h5 class="text-success">✓</h5>
+								<i class="bi bi-check-circle text-success mb-2" style="font-size: 1.5rem;"></i>
+								<h5 class="text-success mb-1">✓</h5>
 								<small class="text-muted">All Good</small>
 							{% endif %}
 						</div>
@@ -59,82 +64,99 @@
 
 <div class="row" id="summary">
 	<div class="col-md-6">
-		<div class="card mb-3">
-			<div class="card-header">Accounts</div>
+		<div class="card mb-3 accounts-table">
+			<div class="card-header d-flex justify-content-between align-items-center">
+				<span><i class="bi bi-bank me-2"></i>Accounts</span>
+				<span class="badge bg-primary">{{ accounts|length }}</span>
+			</div>
 			<div class="card-body p-0">
 				{% if accounts %}
 				<div class="table-responsive">
-					<table class="table table-sm mb-0">
+					<table class="table table-enhanced mb-0">
 						<thead>
 							<tr>
-								<th>Name</th>
-								<th>Type</th>
-								<th>Bank ID</th>
-								<th>Account ID</th>
+								<th><i class="bi bi-person-badge me-1"></i>Name</th>
+								<th><i class="bi bi-credit-card me-1"></i>Type</th>
+								<th><i class="bi bi-building me-1"></i>Bank ID</th>
+								<th><i class="bi bi-hash me-1"></i>Account ID</th>
 							</tr>
 						</thead>
 						<tbody>
 							{% for a in accounts %}
 							<tr>
-								<td>{{ a.name|default:'—' }}</td>
-								<td>{{ a.get_type_display }}</td>
+								<td><strong>{{ a.name|default:'—' }}</strong></td>
+								<td><span class="badge bg-secondary">{{ a.get_type_display }}</span></td>
 								<td>{{ a.bank_id|default:'—' }}</td>
-								<td><code>{{ a.account_id }}</code></td>
+								<td><code class="text-primary">{{ a.account_id }}</code></td>
 							</tr>
 							{% endfor %}
 						</tbody>
 					</table>
 				</div>
 				{% else %}
-					<p class="m-3 text-muted">No accounts yet. Try importing an OFX file.</p>
+					<div class="text-center py-4">
+						<i class="bi bi-bank" style="font-size: 2rem; color: #6c757d;"></i>
+						<p class="mt-2 text-muted">No accounts yet. Try importing an OFX file.</p>
+					</div>
 				{% endif %}
 			</div>
 		</div>
 	</div>
 	<div class="col-md-6">
-		<div class="card mb-3">
+		<div class="card mb-3 transactions-table">
 			<div class="card-header d-flex justify-content-between align-items-center">
-				<span>Recent Transactions</span>
-				<a href="{% url 'categories' %}" class="btn btn-sm btn-outline-secondary">Categories</a>
+				<span><i class="bi bi-clock-history me-2"></i>Recent Transactions</span>
+				<a href="{% url 'categories' %}" class="btn btn-sm btn-outline-secondary">
+					<i class="bi bi-tags me-1"></i>Categories
+				</a>
 			</div>
 			<div class="card-body p-0">
 				{% if recent %}
 				<div class="table-responsive">
-					<table class="table table-sm mb-0">
+					<table class="table table-enhanced mb-0">
 						<thead>
 							<tr>
-								<th>Date</th>
-								<th>Account</th>
-								<th>Category</th>
-								<th class="text-end">Amount</th>
-								<th>Name/Memo</th>
+								<th><i class="bi bi-calendar3 me-1"></i>Date</th>
+								<th><i class="bi bi-bank me-1"></i>Account</th>
+								<th><i class="bi bi-tag me-1"></i>Category</th>
+								<th class="text-end"><i class="bi bi-currency-dollar me-1"></i>Amount</th>
+								<th><i class="bi bi-file-text me-1"></i>Description</th>
 							</tr>
 						</thead>
 						<tbody>
 							{% for t in recent %}
 							<tr>
-								<td>{{ t.posted_date|date:'M j' }}</td>
-								<td>{{ t.account.name|default:t.account.account_id|truncatechars:15 }}</td>
+								<td><strong>{{ t.posted_date|date:'M j' }}</strong></td>
+								<td class="text-truncate" style="max-width: 120px;">
+									{{ t.account.name|default:t.account.account_id|truncatechars:15 }}
+								</td>
 								<td>
 									{% if t.category %}
-										<span class="badge" style="background-color: {{ t.category.color }}; color: white; font-size: 0.7em;">
+										<span class="badge" style="background-color: {{ t.category.color }}; color: white; font-size: 0.75rem;">
 											{{ t.category.name|truncatechars:10 }}
 										</span>
 									{% else %}
-										<span class="badge bg-light text-dark" style="font-size: 0.7em;">None</span>
+										<span class="badge bg-light text-dark" style="font-size: 0.75rem;">Uncategorized</span>
 									{% endif %}
 								</td>
-								<td class="text-end {% if t.amount < 0 %}text-danger{% else %}text-success{% endif %}">
-									{{ t.amount|floatformat:2 }}
+								<td class="text-end">
+									<strong class="{% if t.amount < 0 %}text-danger{% else %}text-success{% endif %}">
+										{% if t.amount < 0 %}-{% endif %}${{ t.amount|floatformat:2|cut:'-' }}
+									</strong>
 								</td>
-								<td>{{ t.name|default:t.memo|truncatechars:20 }}</td>
+								<td class="text-truncate" style="max-width: 150px;" title="{{ t.name|default:t.memo }}">
+									{{ t.name|default:t.memo|truncatechars:20 }}
+								</td>
 							</tr>
 							{% endfor %}
 						</tbody>
 					</table>
 				</div>
 				{% else %}
-					<p class="m-3 text-muted">No transactions yet.</p>
+					<div class="text-center py-4">
+						<i class="bi bi-clock-history" style="font-size: 2rem; color: #6c757d;"></i>
+						<p class="mt-2 text-muted">No transactions yet.</p>
+					</div>
 				{% endif %}
 			</div>
 		</div>

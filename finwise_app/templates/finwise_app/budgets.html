@@ -19,32 +19,36 @@
       <!-- Budget Summary Cards -->
       <div class="row mb-4">
         <div class="col-md-3">
-          <div class="card border-primary">
+          <div class="card border-primary budget-summary-card">
             <div class="card-body text-center">
+              <i class="bi bi-wallet2 text-primary mb-2" style="font-size: 2rem;"></i>
               <h5 class="card-title text-primary">Total Budgeted</h5>
               <h3 class="mb-0">${{ total_budgeted|floatformat:2 }}</h3>
             </div>
           </div>
         </div>
         <div class="col-md-3">
-          <div class="card border-warning">
+          <div class="card border-warning budget-summary-card">
             <div class="card-body text-center">
+              <i class="bi bi-credit-card text-warning mb-2" style="font-size: 2rem;"></i>
               <h5 class="card-title text-warning">Total Spent</h5>
               <h3 class="mb-0">${{ total_spent|floatformat:2 }}</h3>
             </div>
           </div>
         </div>
         <div class="col-md-3">
-          <div class="card border-success">
+          <div class="card border-success budget-summary-card">
             <div class="card-body text-center">
+              <i class="bi bi-piggy-bank text-success mb-2" style="font-size: 2rem;"></i>
               <h5 class="card-title text-success">Remaining</h5>
               <h3 class="mb-0">${{ total_budgeted|add:total_spent|mul:-1|floatformat:2 }}</h3>
             </div>
           </div>
         </div>
         <div class="col-md-3">
-          <div class="card border-danger">
+          <div class="card border-danger budget-summary-card">
             <div class="card-body text-center">
+              <i class="bi bi-exclamation-triangle text-danger mb-2" style="font-size: 2rem;"></i>
               <h5 class="card-title text-danger">Over Threshold</h5>
               <h3 class="mb-0">{{ over_threshold_count }}</h3>
             </div>
@@ -55,67 +59,77 @@
       <!-- Budgets List -->
       {% if budgets %}
       <div class="card">
-        <div class="card-header">
-          <h5 class="mb-0">Your Budgets</h5>
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h5 class="mb-0"><i class="bi bi-table me-2"></i>Your Budgets</h5>
+          <span class="badge bg-primary">{{ budgets|length }} budgets</span>
         </div>
-        <div class="card-body">
+        <div class="card-body p-0">
           <div class="table-responsive">
-            <table class="table table-hover">
+            <table class="table table-enhanced mb-0">
               <thead>
                 <tr>
-                  <th>Category</th>
-                  <th>Budgeted</th>
-                  <th>Spent</th>
-                  <th>Remaining</th>
-                  <th>Progress</th>
-                  <th>Actions</th>
+                  <th><i class="bi bi-tag me-1"></i>Category</th>
+                  <th><i class="bi bi-wallet2 me-1"></i>Budgeted</th>
+                  <th><i class="bi bi-credit-card me-1"></i>Spent</th>
+                  <th><i class="bi bi-piggy-bank me-1"></i>Remaining</th>
+                  <th><i class="bi bi-bar-chart me-1"></i>Progress</th>
+                  <th><i class="bi bi-gear me-1"></i>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {% for budget in budgets %}
                 <tr>
                   <td>
-                    <span class="badge" style="background-color: {{ budget.category.color }}; color: white;">
-                      {{ budget.category.name }}
-                    </span>
+                    <div class="d-flex align-items-center">
+                      <div class="rounded-circle me-2" style="width: 12px; height: 12px; background-color: {{ budget.category.color }};"></div>
+                      <span class="badge" style="background-color: {{ budget.category.color }}; color: white;">
+                        {{ budget.category.name }}
+                      </span>
+                    </div>
                   </td>
-                  <td>${{ budget.amount|floatformat:2 }}</td>
-                  <td>${{ budget.get_spent_amount|floatformat:2 }}</td>
+                  <td><strong>${{ budget.amount|floatformat:2 }}</strong></td>
+                  <td><span class="text-warning fw-bold">${{ budget.get_spent_amount|floatformat:2 }}</span></td>
                   <td>
                     {% with remaining=budget.amount|add:budget.get_spent_amount|mul:-1 %}
-                      <span class="{% if remaining < 0 %}text-danger{% else %}text-success{% endif %}">
+                      <span class="fw-bold {% if remaining < 0 %}text-danger{% else %}text-success{% endif %}">
                         ${{ remaining|floatformat:2 }}
                       </span>
                     {% endwith %}
                   </td>
                   <td>
                     {% with percentage=budget.get_percentage_used %}
-                    <div class="progress" style="width: 100px;">
-                      <div class="progress-bar 
-                        {% if percentage >= 100 %}bg-danger
-                        {% elif percentage >= 80 %}bg-warning
-                        {% else %}bg-success{% endif %}" 
-                        role="progressbar" 
-                        style="width: {{ percentage|floatformat:0 }}%"
-                        aria-valuenow="{{ percentage|floatformat:0 }}" 
-                        aria-valuemin="0" 
-                        aria-valuemax="100">
-                        {{ percentage|floatformat:0 }}%
+                    <div class="d-flex align-items-center">
+                      <div class="progress me-2" style="width: 100px; height: 8px;">
+                        <div class="progress-bar 
+                          {% if percentage >= 100 %}bg-danger
+                          {% elif percentage >= 80 %}bg-warning
+                          {% else %}bg-success{% endif %}" 
+                          role="progressbar" 
+                          style="width: {{ percentage|floatformat:0 }}%"
+                          aria-valuenow="{{ percentage|floatformat:0 }}" 
+                          aria-valuemin="0" 
+                          aria-valuemax="100">
+                        </div>
                       </div>
+                      <small class="text-muted">{{ percentage|floatformat:0 }}%</small>
                     </div>
                     {% endwith %}
                   </td>
                   <td>
-                    <button class="btn btn-sm btn-outline-primary" 
-                            onclick="editBudget({{ budget.id }}, '{{ budget.category.name }}', {{ budget.amount }})">
-                      Edit
-                    </button>
-                    <form method="post" action="{% url 'delete_budget' budget.id %}" 
-                          style="display: inline;" 
-                          onsubmit="return confirm('Delete budget for {{ budget.category.name }}?')">
+                    <div class="btn-group" role="group">
+                      <button class="btn btn-sm btn-outline-primary" 
+                              onclick="editBudget({{ budget.id }}, '{{ budget.category.name }}', {{ budget.amount }})">
+                        <i class="bi bi-pencil me-1"></i>Edit
+                      </button>
+                      <form method="post" action="{% url 'delete_budget' budget.id %}" 
+                            style="display: inline;" 
+                            onsubmit="return confirm('Delete budget for {{ budget.category.name }}?')">
                       {% csrf_token %}
-                      <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+                      <button type="submit" class="btn btn-sm btn-outline-danger">
+                        <i class="bi bi-trash me-1"></i>Delete
+                      </button>
                     </form>
+                    </div>
                   </td>
                 </tr>
                 {% endfor %}
