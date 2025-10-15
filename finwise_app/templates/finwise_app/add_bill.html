@@ -1,0 +1,224 @@
+{% extends "finwise_app/base.html" %}
+
+{% block title %}Add Bill - FinWise{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">Dashboard</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'bills' %}">Bills</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Add Bill</li>
+        </ol>
+    </nav>
+
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-plus-lg me-2"></i>Add New Bill</h2>
+        <a href="{% url 'bills' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i>Back to Bills
+        </a>
+    </div>
+
+    <!-- Form -->
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-receipt me-2"></i>Bill Information</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" class="needs-validation" novalidate>
+                        {% csrf_token %}
+                        
+                        <!-- Basic Information -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h6 class="text-primary">Basic Information</h6>
+                                <hr>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="name" class="form-label">Bill Name <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="name" name="name" 
+                                       placeholder="e.g., Electric Bill, Internet" required>
+                                <div class="invalid-feedback">
+                                    Please provide a bill name.
+                                </div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="amount" class="form-label">Amount <span class="text-danger">*</span></label>
+                                <div class="input-group">
+                                    <span class="input-group-text">$</span>
+                                    <input type="number" class="form-control" id="amount" name="amount" 
+                                           step="0.01" min="0.01" placeholder="0.00" required>
+                                </div>
+                                <div class="invalid-feedback">
+                                    Please provide a valid amount.
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Description -->
+                        <div class="mb-4">
+                            <label for="description" class="form-label">Description</label>
+                            <textarea class="form-control" id="description" name="description" rows="2" 
+                                      placeholder="Optional notes about this bill..."></textarea>
+                            <div class="form-text">
+                                <i class="bi bi-info-circle me-1"></i>
+                                Add any additional notes or details about this bill
+                            </div>
+                        </div>
+
+                        <!-- Due Date and Frequency -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h6 class="text-primary">Schedule</h6>
+                                <hr>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="due_date" class="form-label">Due Date <span class="text-danger">*</span></label>
+                                <input type="date" class="form-control" id="due_date" name="due_date" required>
+                                <div class="invalid-feedback">
+                                    Please select a due date.
+                                </div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="frequency" class="form-label">Frequency</label>
+                                <select class="form-select" id="frequency" name="frequency">
+                                    {% for value, display in bill_frequency_choices %}
+                                        <option value="{{ value }}" {% if value == 'MONTHLY' %}selected{% endif %}>
+                                            {{ display }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                                <div class="form-text">
+                                    <i class="bi bi-info-circle me-1"></i>
+                                    How often this bill repeats
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Category -->
+                        <div class="mb-4">
+                            <h6 class="text-primary">Categorization</h6>
+                            <hr>
+                            <div class="col-md-6">
+                                <label for="category" class="form-label">Category</label>
+                                <select class="form-select" id="category" name="category">
+                                    <option value="">Select Category (Optional)</option>
+                                    {% for category in categories %}
+                                        <option value="{{ category.id }}">{{ category.name }}</option>
+                                    {% endfor %}
+                                </select>
+                                <div class="form-text">
+                                    <i class="bi bi-info-circle me-1"></i>
+                                    Helps track spending by category
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Reminders -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h6 class="text-primary">Reminders</h6>
+                                <hr>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="reminder_enabled" 
+                                           name="reminder_enabled" checked>
+                                    <label class="form-check-label" for="reminder_enabled">
+                                        Enable Reminders
+                                    </label>
+                                </div>
+                                <div class="form-text">
+                                    <i class="bi bi-info-circle me-1"></i>
+                                    Get notified before the due date
+                                </div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="reminder_days" class="form-label">Days Before Due Date</label>
+                                <select class="form-select" id="reminder_days" name="reminder_days">
+                                    <option value="1">1 day</option>
+                                    <option value="2">2 days</option>
+                                    <option value="3" selected>3 days</option>
+                                    <option value="5">5 days</option>
+                                    <option value="7">1 week</option>
+                                    <option value="14">2 weeks</option>
+                                </select>
+                            </div>
+                        </div>
+
+
+
+                        <!-- Submit Buttons -->
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'bills' %}" class="btn btn-secondary">
+                                <i class="bi bi-x-lg me-1"></i>Cancel
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check-lg me-1"></i>Add Bill
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Help Panel -->
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="bi bi-question-circle me-2"></i>Help</h6>
+                </div>
+                <div class="card-body">
+                    <h6>Bill Frequencies</h6>
+                    <ul class="small">
+                        <li><strong>Weekly:</strong> Every 7 days</li>
+                        <li><strong>Bi-weekly:</strong> Every 2 weeks</li>
+                        <li><strong>Monthly:</strong> Every month</li>
+                        <li><strong>Quarterly:</strong> Every 3 months</li>
+                        <li><strong>Yearly:</strong> Every 12 months</li>
+                        <li><strong>One-time:</strong> Does not repeat</li>
+                    </ul>
+                    
+                    <h6 class="mt-3">Tips</h6>
+                    <ul class="small">
+                        <li>Use clear, descriptive names for your bills</li>
+                        <li>Set reminders 3-5 days before due dates</li>
+                        <li>Categorize bills to track spending patterns</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+
+// Form validation
+(function() {
+    'use strict';
+    window.addEventListener('load', function() {
+        var forms = document.getElementsByClassName('needs-validation');
+        var validation = Array.prototype.filter.call(forms, function(form) {
+            form.addEventListener('submit', function(event) {
+                if (form.checkValidity() === false) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                }
+                form.classList.add('was-validated');
+            }, false);
+        });
+    }, false);
+})();
+
+// Set minimum date to today
+document.addEventListener('DOMContentLoaded', function() {
+    const dueDateInput = document.getElementById('due_date');
+    const today = new Date().toISOString().split('T')[0];
+    dueDateInput.min = today;
+});
+</script>
+{% endblock %}

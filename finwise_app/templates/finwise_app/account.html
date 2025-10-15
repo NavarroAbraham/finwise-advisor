@@ -1,0 +1,445 @@
+{% extends 'finwise_app/base.html' %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-person-circle me-2"></i>Account Settings</h2>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">Dashboard</a></li>
+                <li class="breadcrumb-item active">Account</li>
+            </ol>
+        </nav>
+    </div>
+
+    <div class="row">
+        <!-- Account Information -->
+        <div class="col-lg-8">
+            <div class="card card-enhanced mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-person me-2"></i>Personal Information</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" action="{% url 'update_account' %}" class="needs-validation" novalidate>
+                        {% csrf_token %}
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="first_name" class="form-label">First Name</label>
+                                <input type="text" class="form-control" id="first_name" name="first_name" 
+                                       value="{{ user.first_name }}" placeholder="Enter your first name">
+                                <div class="form-text">
+                                    <i class="bi bi-info-circle me-1"></i>
+                                    This will be displayed in your profile
+                                </div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="last_name" class="form-label">Last Name</label>
+                                <input type="text" class="form-control" id="last_name" name="last_name" 
+                                       value="{{ user.last_name }}" placeholder="Enter your last name">
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="email" class="form-label">Email Address</label>
+                            <input type="email" class="form-control" id="email" name="email" 
+                                   value="{{ user.email }}" required>
+                            <div class="form-text">
+                                <i class="bi bi-envelope me-1"></i>
+                                Used for notifications and account recovery
+                            </div>
+                            <div class="invalid-feedback">
+                                Please provide a valid email address.
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="username" class="form-label">Username</label>
+                            <input type="text" class="form-control" id="username" name="username" 
+                                   value="{{ user.username }}" disabled>
+                            <div class="form-text">
+                                <i class="bi bi-lock me-1"></i>
+                                Username cannot be changed
+                            </div>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check-circle me-2"></i>Update Information
+                            </button>
+                            <small class="text-muted align-self-center">
+                                Member since {{ user.date_joined|date:"F Y" }}
+                            </small>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Change Password -->
+            <div class="card card-enhanced mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-shield-lock me-2"></i>Change Password</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" action="{% url 'change_password' %}" class="needs-validation" novalidate>
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label for="current_password" class="form-label">Current Password</label>
+                            <input type="password" class="form-control" id="current_password" name="current_password" required>
+                            <div class="invalid-feedback">
+                                Please enter your current password.
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="new_password" class="form-label">New Password</label>
+                            <input type="password" class="form-control" id="new_password" name="new_password" 
+                                   minlength="8" required>
+                            <div class="form-text">
+                                <i class="bi bi-info-circle me-1"></i>
+                                Must be at least 8 characters long
+                            </div>
+                            <div class="invalid-feedback">
+                                Password must be at least 8 characters long.
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="confirm_password" class="form-label">Confirm New Password</label>
+                            <input type="password" class="form-control" id="confirm_password" name="confirm_password" required>
+                            <div class="invalid-feedback">
+                                Please confirm your new password.
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-warning">
+                            <i class="bi bi-key me-2"></i>Change Password
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Data Management -->
+            <div class="card card-enhanced mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-database me-2"></i>Data Management</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <h6>Export Your Data</h6>
+                            <p class="text-muted">Download all your financial data in JSON format for backup or migration purposes.</p>
+                            <a href="{% url 'export_data' %}" class="btn btn-outline-primary">
+                                <i class="bi bi-download me-2"></i>Export Data
+                            </a>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Clean Your Data</h6>
+                            <p class="text-muted">Remove duplicate transactions, old data, or unused categories to optimize your account.</p>
+                            <button type="button" class="btn btn-outline-warning" data-bs-toggle="modal" data-bs-target="#cleanDataModal">
+                                <i class="bi bi-broom me-2"></i>Clean Data
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Danger Zone -->
+            <div class="card card-enhanced border-danger mb-4">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mb-0"><i class="bi bi-exclamation-triangle me-2"></i>Danger Zone</h5>
+                </div>
+                <div class="card-body">
+                    <h6>Delete Account</h6>
+                    <p class="text-muted">
+                        Permanently delete your account and all associated data. This action cannot be undone.
+                    </p>
+                    <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteAccountModal">
+                        <i class="bi bi-trash me-2"></i>Delete Account
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Account Summary -->
+        <div class="col-lg-4">
+            <div class="card card-enhanced mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-bar-chart me-2"></i>Account Summary</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-6 mb-3">
+                            <div class="metric-card">
+                                <div class="metric-value text-success">${{ data_stats.total_balance|floatformat:2 }}</div>
+                                <div class="metric-label">Total Balance</div>
+                            </div>
+                        </div>
+                        <div class="col-6 mb-3">
+                            <div class="metric-card">
+                                <div class="metric-value text-primary">{{ data_stats.accounts_count }}</div>
+                                <div class="metric-label">Accounts</div>
+                            </div>
+                        </div>
+                        <div class="col-6 mb-3">
+                            <div class="metric-card">
+                                <div class="metric-value text-info">{{ data_stats.total_transactions }}</div>
+                                <div class="metric-label">Transactions</div>
+                            </div>
+                        </div>
+                        <div class="col-6 mb-3">
+                            <div class="metric-card">
+                                <div class="metric-value text-warning">{{ data_stats.total_categories }}</div>
+                                <div class="metric-label">Categories</div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="metric-card">
+                                <div class="metric-value text-secondary">{{ data_stats.total_budgets }}</div>
+                                <div class="metric-label">Budgets</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Account Details -->
+            <div class="card card-enhanced mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-credit-card me-2"></i>Account Details</h5>
+                </div>
+                <div class="card-body">
+                    {% if account_balances %}
+                        {% for account_data in account_balances %}
+                        <div class="d-flex justify-content-between align-items-center mb-3 p-2 border rounded">
+                            <div>
+                                <h6 class="mb-1">{{ account_data.account.name }}</h6>
+                                <small class="text-muted">{{ account_data.transaction_count }} transactions</small>
+                            </div>
+                            <div class="text-end">
+                                <span class="fw-bold {% if account_data.balance >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                    ${{ account_data.balance|floatformat:2 }}
+                                </span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <p class="text-muted text-center">No accounts found. <a href="{% url 'import_transactions' %}">Import some data</a> to get started.</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Recent Activity -->
+            <div class="card card-enhanced">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-clock-history me-2"></i>Recent Activity</h5>
+                </div>
+                <div class="card-body">
+                    {% if recent_transactions %}
+                        {% for transaction in recent_transactions %}
+                        <div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
+                            <div>
+                                <div class="fw-medium">{{ transaction.description|truncatechars:30 }}</div>
+                                <small class="text-muted">{{ transaction.date|date:"M d, Y" }}</small>
+                            </div>
+                            <span class="{% if transaction.amount >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                {% if transaction.amount >= 0 %}+{% endif %}${{ transaction.amount|floatformat:2 }}
+                            </span>
+                        </div>
+                        {% endfor %}
+                        <div class="text-center mt-3">
+                            <a href="{% url 'dashboard' %}" class="btn btn-sm btn-outline-primary">View All</a>
+                        </div>
+                    {% else %}
+                        <p class="text-muted text-center">No recent activity</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Clean Data Modal -->
+<div class="modal fade" id="cleanDataModal" tabindex="-1" aria-labelledby="cleanDataModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="cleanDataModalLabel">
+                    <i class="bi bi-broom me-2"></i>Clean Your Data
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="post" action="{% url 'clean_data' %}">
+                <div class="modal-body">
+                    {% csrf_token %}
+                    <p class="text-muted">Select the data cleaning options you want to apply:</p>
+                    
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="clean_duplicates" name="clean_duplicates">
+                        <label class="form-check-label" for="clean_duplicates">
+                            <strong>Remove Duplicate Transactions</strong>
+                            <br><small class="text-muted">Delete transactions with identical date, amount, and description</small>
+                        </label>
+                    </div>
+                    
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="clean_old_data" name="clean_old_data">
+                        <label class="form-check-label" for="clean_old_data">
+                            <strong>Remove Old Data</strong>
+                            <br><small class="text-muted">Delete transactions older than 2 years</small>
+                        </label>
+                    </div>
+                    
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="clean_categories" name="clean_categories">
+                        <label class="form-check-label" for="clean_categories">
+                            <strong>Remove Unused Categories</strong>
+                            <br><small class="text-muted">Delete categories not used by any transactions or budgets</small>
+                        </label>
+                    </div>
+                    
+                    <hr>
+                    
+                    <h6 class="text-danger">Destructive Actions</h6>
+                    <p class="small text-muted">These actions will permanently delete data and cannot be undone.</p>
+                    
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="clean_transactions" name="clean_transactions">
+                        <label class="form-check-label" for="clean_transactions">
+                            <strong class="text-danger">Delete All Transactions</strong>
+                            <br><small class="text-muted">Permanently remove all transaction data</small>
+                        </label>
+                    </div>
+                    
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="clean_budgets" name="clean_budgets">
+                        <label class="form-check-label" for="clean_budgets">
+                            <strong class="text-danger">Delete All Budgets</strong>
+                            <br><small class="text-muted">Permanently remove all budget data</small>
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-warning">
+                        <i class="bi bi-broom me-2"></i>Clean Selected Data
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Account Modal -->
+<div class="modal fade" id="deleteAccountModal" tabindex="-1" aria-labelledby="deleteAccountModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="deleteAccountModalLabel">
+                    <i class="bi bi-exclamation-triangle me-2"></i>Delete Account
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="post" action="{% url 'delete_account' %}">
+                <div class="modal-body">
+                    {% csrf_token %}
+                    <div class="alert alert-danger">
+                        <strong>Warning!</strong> This action will permanently delete your account and all associated data including:
+                        <ul class="mt-2 mb-0">
+                            <li>All transactions and accounts</li>
+                            <li>All categories and budgets</li>
+                            <li>Your personal information</li>
+                            <li>All settings and preferences</li>
+                        </ul>
+                    </div>
+                    
+                    <p>This action <strong>cannot be undone</strong>. If you're sure you want to delete your account, please enter your username below to confirm:</p>
+                    
+                    <div class="mb-3">
+                        <label for="confirm_username" class="form-label">Type your username: <strong>{{ user.username }}</strong></label>
+                        <input type="text" class="form-control" id="confirm_username" name="confirm_username" 
+                               placeholder="Enter your username to confirm" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-trash me-2"></i>Delete My Account
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+.metric-card {
+    text-align: center;
+    padding: 1rem;
+    border-radius: 8px;
+    background-color: var(--accent-bg);
+}
+
+.metric-value {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+}
+
+.metric-label {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.card-enhanced {
+    transition: all 0.2s ease;
+}
+
+.card-enhanced:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="dark"] .metric-card {
+    background-color: rgba(255, 255, 255, 0.05);
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Password confirmation validation
+    const newPassword = document.getElementById('new_password');
+    const confirmPassword = document.getElementById('confirm_password');
+    
+    function validatePasswordMatch() {
+        if (newPassword.value !== confirmPassword.value) {
+            confirmPassword.setCustomValidity('Passwords do not match');
+        } else {
+            confirmPassword.setCustomValidity('');
+        }
+    }
+    
+    if (newPassword && confirmPassword) {
+        newPassword.addEventListener('input', validatePasswordMatch);
+        confirmPassword.addEventListener('input', validatePasswordMatch);
+    }
+    
+    // Username confirmation for account deletion
+    const confirmUsername = document.getElementById('confirm_username');
+    const deleteForm = confirmUsername?.closest('form');
+    
+    if (confirmUsername && deleteForm) {
+        deleteForm.addEventListener('submit', function(e) {
+            if (confirmUsername.value !== '{{ user.username }}') {
+                e.preventDefault();
+                confirmUsername.setCustomValidity('Username does not match');
+                confirmUsername.reportValidity();
+            }
+        });
+        
+        confirmUsername.addEventListener('input', function() {
+            if (this.value === '{{ user.username }}') {
+                this.setCustomValidity('');
+            } else {
+                this.setCustomValidity('Username does not match');
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

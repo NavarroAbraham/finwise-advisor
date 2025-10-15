@@ -1,0 +1,246 @@
+{% extends "finwise_app/base.html" %}
+
+{% block title %}Edit Bill - FinWise{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">Dashboard</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'bills' %}">Bills</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Edit {{ bill.name }}</li>
+        </ol>
+    </nav>
+
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-pencil me-2"></i>Edit Bill</h2>
+        <a href="{% url 'bills' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i>Back to Bills
+        </a>
+    </div>
+
+    <!-- Form -->
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-receipt me-2"></i>Bill Information</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" class="needs-validation" novalidate>
+                        {% csrf_token %}
+                        
+                        <!-- Basic Information -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h6 class="text-primary">Basic Information</h6>
+                                <hr>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="name" class="form-label">Bill Name <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="name" name="name" 
+                                       value="{{ bill.name }}" required>
+                                <div class="invalid-feedback">
+                                    Please provide a bill name.
+                                </div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="amount" class="form-label">Amount <span class="text-danger">*</span></label>
+                                <div class="input-group">
+                                    <span class="input-group-text">$</span>
+                                    <input type="number" class="form-control" id="amount" name="amount" 
+                                           step="0.01" min="0.01" value="{{ bill.amount }}" required>
+                                </div>
+                                <div class="invalid-feedback">
+                                    Please provide a valid amount.
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Description -->
+                        <div class="mb-4">
+                            <label for="description" class="form-label">Description</label>
+                            <textarea class="form-control" id="description" name="description" rows="2">{{ bill.description }}</textarea>
+                            <div class="form-text">
+                                <i class="bi bi-info-circle me-1"></i>
+                                Add any additional notes or details about this bill
+                            </div>
+                        </div>
+
+                        <!-- Due Date and Frequency -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h6 class="text-primary">Schedule</h6>
+                                <hr>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="due_date" class="form-label">Due Date <span class="text-danger">*</span></label>
+                                <input type="date" class="form-control" id="due_date" name="due_date" 
+                                       value="{{ bill.due_date|date:'Y-m-d' }}" required>
+                                <div class="invalid-feedback">
+                                    Please select a due date.
+                                </div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="frequency" class="form-label">Frequency</label>
+                                <select class="form-select" id="frequency" name="frequency">
+                                    {% for value, display in bill_frequency_choices %}
+                                        <option value="{{ value }}" {% if value == bill.frequency %}selected{% endif %}>
+                                            {{ display }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                                <div class="form-text">
+                                    <i class="bi bi-info-circle me-1"></i>
+                                    How often this bill repeats
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Category -->
+                        <div class="mb-4">
+                            <h6 class="text-primary">Categorization</h6>
+                            <hr>
+                            <div class="col-md-6">
+                                <label for="category" class="form-label">Category</label>
+                                <select class="form-select" id="category" name="category">
+                                    <option value="">Select Category (Optional)</option>
+                                    {% for category in categories %}
+                                        <option value="{{ category.id }}" 
+                                                {% if bill.category and category.id == bill.category.id %}selected{% endif %}>
+                                            {{ category.name }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                                <div class="form-text">
+                                    <i class="bi bi-info-circle me-1"></i>
+                                    Helps track spending by category
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Reminders -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h6 class="text-primary">Reminders</h6>
+                                <hr>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="reminder_enabled" 
+                                           name="reminder_enabled" {% if bill.reminder_enabled %}checked{% endif %}>
+                                    <label class="form-check-label" for="reminder_enabled">
+                                        Enable Reminders
+                                    </label>
+                                </div>
+                                <div class="form-text">
+                                    <i class="bi bi-info-circle me-1"></i>
+                                    Get notified before the due date
+                                </div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="reminder_days" class="form-label">Days Before Due Date</label>
+                                <select class="form-select" id="reminder_days" name="reminder_days">
+                                    <option value="1" {% if bill.reminder_days == 1 %}selected{% endif %}>1 day</option>
+                                    <option value="2" {% if bill.reminder_days == 2 %}selected{% endif %}>2 days</option>
+                                    <option value="3" {% if bill.reminder_days == 3 %}selected{% endif %}>3 days</option>
+                                    <option value="5" {% if bill.reminder_days == 5 %}selected{% endif %}>5 days</option>
+                                    <option value="7" {% if bill.reminder_days == 7 %}selected{% endif %}>1 week</option>
+                                    <option value="14" {% if bill.reminder_days == 14 %}selected{% endif %}>2 weeks</option>
+                                </select>
+                            </div>
+                        </div>
+
+
+
+                        <!-- Submit Buttons -->
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'bills' %}" class="btn btn-secondary">
+                                <i class="bi bi-x-lg me-1"></i>Cancel
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check-lg me-1"></i>Update Bill
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bill Status Info -->
+        <div class="col-lg-4">
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="bi bi-info-circle me-2"></i>Bill Status</h6>
+                </div>
+                <div class="card-body">
+                    <dl class="row">
+                        <dt class="col-sm-6">Status:</dt>
+                        <dd class="col-sm-6">
+                            <span class="badge bg-{{ bill.get_status_color }}">
+                                {{ bill.get_status_display }}
+                            </span>
+                        </dd>
+                        
+                        <dt class="col-sm-6">Created:</dt>
+                        <dd class="col-sm-6">{{ bill.created_at|date:"M j, Y" }}</dd>
+                        
+                        {% if bill.last_paid_date %}
+                            <dt class="col-sm-6">Last Paid:</dt>
+                            <dd class="col-sm-6">{{ bill.last_paid_date|date:"M j, Y" }}</dd>
+                        {% endif %}
+                        
+                        <dt class="col-sm-6">Days Until Due:</dt>
+                        <dd class="col-sm-6">
+                            {% if bill.days_until_due >= 0 %}
+                                <span class="text-success">{{ bill.days_until_due }} days</span>
+                            {% else %}
+                                <span class="text-danger">{{ bill.days_until_due|add:0|abs }} days overdue</span>
+                            {% endif %}
+                        </dd>
+                    </dl>
+                </div>
+            </div>
+
+            <!-- Help Panel -->
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="bi bi-question-circle me-2"></i>Help</h6>
+                </div>
+                <div class="card-body">
+                    <h6>Editing Tips</h6>
+                    <ul class="small">
+                        <li>Changes affect future occurrences of recurring bills</li>
+                        <li>Past payments are not affected by edits</li>
+                        <li>Due date changes update reminder schedules</li>
+                        <li>Frequency changes affect next bill generation</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+
+
+// Form validation
+(function() {
+    'use strict';
+    window.addEventListener('load', function() {
+        var forms = document.getElementsByClassName('needs-validation');
+        var validation = Array.prototype.filter.call(forms, function(form) {
+            form.addEventListener('submit', function(event) {
+                if (form.checkValidity() === false) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                }
+                form.classList.add('was-validated');
+            }, false);
+        });
+    }, false);
+})();
+</script>
+{% endblock %}

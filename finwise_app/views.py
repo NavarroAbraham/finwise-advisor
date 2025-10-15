@@ -7,13 +7,14 @@ from django.contrib.auth.models import User
 from django.core.files.uploadedfile import UploadedFile
 from django.http import JsonResponse
 from django.db.models import Sum, Q
+from django.utils import timezone
 from datetime import datetime, date
 from decimal import Decimal
 
 from .services.ofx_importer import import_ofx
 from .services.ofx_importer_alternative import import_ofx_alternative
 from .services.categorization_service import TransactionCategorizationService, create_default_categories
-from .models import Account, Transaction, Category, Budget
+from .models import Account, Transaction, Category, Budget, Bill
 
 def home(request):
     return render(request, 'finwise_app/home.html')
@@ -341,3 +342,570 @@ def setup_default_categories(request):
         messages.error(request, f"Error creating default categories: {e}")
     
     return redirect('categories')
+
+
+# Account Management Views
+
+@login_required
+def account_view(request):
+    """Display user account details and data management options"""
+    user = request.user
+    
+    # Get account statistics
+    user_accounts = Account.objects.filter(user=user)
+    total_transactions = Transaction.objects.filter(account__user=user).count()
+    total_categories = Category.objects.filter(is_active=True).count()  # Categories are shared
+    total_budgets = Budget.objects.filter(user=user).count()
+    
+    # Get account balance summary
+    account_balances = []
+    total_balance = Decimal('0')
+    
+    for account in user_accounts:
+        # Calculate balance from transactions
+        balance = account.transactions.aggregate(total=Sum('amount'))['total'] or Decimal('0')
+        total_balance += balance
+        
+        account_balances.append({
+            'account': account,
+            'balance': balance,
+            'transaction_count': account.transactions.count()
+        })
+    
+    # Recent activity (last 5 transactions)
+    recent_transactions = Transaction.objects.filter(
+        account__user=user
+    ).order_by('-posted_date')[:5]
+    
+    # Account age
+    account_age_days = (timezone.now().date() - user.date_joined.date()).days
+    
+    # Calculate data usage
+    data_stats = {
+        'total_transactions': total_transactions,
+        'total_categories': total_categories,
+        'total_budgets': total_budgets,
+        'accounts_count': user_accounts.count(),
+        'total_balance': total_balance,
+        'account_age_days': account_age_days,
+    }
+    
+    context = {
+        'user': user,
+        'account_balances': account_balances,
+        'data_stats': data_stats,
+        'recent_transactions': recent_transactions,
+    }
+    
+    return render(request, 'finwise_app/account.html', context)
+
+
+@login_required
+@require_http_methods(["POST"])
+def update_account(request):
+    """Update user account information"""
+    user = request.user
+    
+    # Update basic information
+    first_name = request.POST.get('first_name', '').strip()
+    last_name = request.POST.get('last_name', '').strip()
+    email = request.POST.get('email', '').strip()
+    
+    if not email:
+        messages.error(request, "Email is required.")
+        return redirect('account')
+    
+    # Check if email is already taken by another user
+    if User.objects.filter(email=email).exclude(id=user.id).exists():
+        messages.error(request, "Email is already taken by another user.")
+        return redirect('account')
+    
+    # Update user information
+    user.first_name = first_name
+    user.last_name = last_name
+    user.email = email
+    user.save()
+    
+    messages.success(request, "Account information updated successfully.")
+    return redirect('account')
+
+
+@login_required
+@require_http_methods(["POST"])
+def change_password(request):
+    """Change user password"""
+    user = request.user
+    
+    current_password = request.POST.get('current_password', '')
+    new_password = request.POST.get('new_password', '')
+    confirm_password = request.POST.get('confirm_password', '')
+    
+    # Validate current password
+    if not user.check_password(current_password):
+        messages.error(request, "Current password is incorrect.")
+        return redirect('account')
+    
+    # Validate new password
+    if len(new_password) < 8:
+        messages.error(request, "New password must be at least 8 characters long.")
+        return redirect('account')
+    
+    if new_password != confirm_password:
+        messages.error(request, "New passwords do not match.")
+        return redirect('account')
+    
+    # Update password
+    user.set_password(new_password)
+    user.save()
+    
+    # Re-authenticate user
+    user = authenticate(request, username=user.username, password=new_password)
+    if user:
+        login(request, user)
+    
+    messages.success(request, "Password changed successfully.")
+    return redirect('account')
+
+
+@login_required
+@require_http_methods(["POST"])
+def delete_account(request):
+    """Delete user account and all associated data"""
+    user = request.user
+    confirm_username = request.POST.get('confirm_username', '').strip()
+    
+    # Verify username confirmation
+    if confirm_username != user.username:
+        messages.error(request, "Username confirmation does not match.")
+        return redirect('account')
+    
+    try:
+        # Delete all user data
+        Account.objects.filter(user=user).delete()
+        Category.objects.filter(user=user).delete()
+        Budget.objects.filter(user=user).delete()
+        # Transactions are deleted via cascade when accounts are deleted
+        
+        # Delete user account
+        user.delete()
+        
+        messages.success(request, "Account deleted successfully.")
+        return redirect('home')
+        
+    except Exception as e:
+        messages.error(request, f"Error deleting account: {e}")
+        return redirect('account')
+
+
+@login_required
+def export_data(request):
+    """Export all user data as JSON"""
+    import json
+    from django.http import HttpResponse
+    from django.core import serializers
+    
+    user = request.user
+    
+    try:
+        # Collect all user data
+        user_data = {
+            'user_info': {
+                'username': user.username,
+                'email': user.email,
+                'first_name': user.first_name,
+                'last_name': user.last_name,
+                'date_joined': user.date_joined.isoformat(),
+            },
+            'accounts': [],
+            'categories': [],
+            'budgets': [],
+            'transactions': [],
+        }
+        
+        # Export accounts
+        for account in Account.objects.filter(user=user):
+            user_data['accounts'].append({
+                'name': account.name,
+                'account_type': account.account_type,
+                'balance': str(account.balance) if account.balance else '0',
+                'created_at': account.created_at.isoformat() if hasattr(account, 'created_at') else None,
+            })
+        
+        # Export categories
+        for category in Category.objects.filter(user=user):
+            user_data['categories'].append({
+                'name': category.name,
+                'description': category.description,
+                'created_at': category.created_at.isoformat() if hasattr(category, 'created_at') else None,
+            })
+        
+        # Export budgets
+        for budget in Budget.objects.filter(user=user):
+            user_data['budgets'].append({
+                'category': budget.category.name if budget.category else None,
+                'amount': str(budget.amount),
+                'period': budget.period,
+                'created_at': budget.created_at.isoformat() if hasattr(budget, 'created_at') else None,
+            })
+        
+        # Export transactions
+        for transaction in Transaction.objects.filter(account__user=user):
+            user_data['transactions'].append({
+                'date': transaction.date.isoformat(),
+                'description': transaction.description,
+                'amount': str(transaction.amount),
+                'account': transaction.account.name,
+                'category': transaction.category.name if transaction.category else None,
+                'transaction_type': transaction.transaction_type,
+                'categorized_at': transaction.categorized_at.isoformat() if transaction.categorized_at else None,
+            })
+        
+        # Create response
+        response = HttpResponse(
+            json.dumps(user_data, indent=2, ensure_ascii=False),
+            content_type='application/json'
+        )
+        response['Content-Disposition'] = f'attachment; filename="finwise_data_{user.username}_{datetime.now().strftime("%Y%m%d_%H%M%S")}.json"'
+        
+        return response
+        
+    except Exception as e:
+        messages.error(request, f"Error exporting data: {e}")
+        return redirect('account')
+
+
+@login_required
+@require_http_methods(["POST"])
+def clean_data(request):
+    """Clean user data based on selected options"""
+    user = request.user
+    
+    clean_transactions = request.POST.get('clean_transactions') == 'on'
+    clean_categories = request.POST.get('clean_categories') == 'on'
+    clean_budgets = request.POST.get('clean_budgets') == 'on'
+    clean_duplicates = request.POST.get('clean_duplicates') == 'on'
+    clean_old_data = request.POST.get('clean_old_data') == 'on'
+    
+    try:
+        deleted_count = 0
+        
+        if clean_duplicates:
+            # Remove duplicate transactions
+            from django.db.models import Count
+            duplicates = Transaction.objects.filter(
+                account__user=user
+            ).values(
+                'date', 'description', 'amount', 'account'
+            ).annotate(
+                count=Count('id')
+            ).filter(count__gt=1)
+            
+            for duplicate in duplicates:
+                # Keep the first transaction, delete the rest
+                transactions = Transaction.objects.filter(
+                    account__user=user,
+                    date=duplicate['date'],
+                    description=duplicate['description'],
+                    amount=duplicate['amount'],
+                    account_id=duplicate['account']
+                ).order_by('id')
+                
+                if transactions.count() > 1:
+                    transactions_to_delete = transactions[1:]
+                    for transaction in transactions_to_delete:
+                        transaction.delete()
+                        deleted_count += 1
+        
+        if clean_old_data:
+            # Remove transactions older than 2 years
+            from datetime import timedelta
+            cutoff_date = date.today() - timedelta(days=730)
+            old_transactions = Transaction.objects.filter(
+                account__user=user,
+                date__lt=cutoff_date
+            )
+            deleted_count += old_transactions.count()
+            old_transactions.delete()
+        
+        if clean_transactions:
+            # Remove all transactions
+            transactions = Transaction.objects.filter(account__user=user)
+            deleted_count += transactions.count()
+            transactions.delete()
+        
+        if clean_categories:
+            # Remove unused categories (not default ones)
+            unused_categories = Category.objects.filter(
+                user=user,
+                transaction__isnull=True,
+                budget__isnull=True
+            ).exclude(name__in=[
+                'Groceries', 'Dining Out', 'Transportation', 'Utilities',
+                'Entertainment', 'Healthcare', 'Shopping', 'Income'
+            ])
+            deleted_count += unused_categories.count()
+            unused_categories.delete()
+        
+        if clean_budgets:
+            # Remove all budgets
+            budgets = Budget.objects.filter(user=user)
+            deleted_count += budgets.count()
+            budgets.delete()
+        
+        if deleted_count > 0:
+            messages.success(request, f"Successfully cleaned {deleted_count} items from your data.")
+        else:
+            messages.info(request, "No items were cleaned based on your selections.")
+            
+    except Exception as e:
+        messages.error(request, f"Error cleaning data: {e}")
+    
+    return redirect('account')
+
+
+# Bill Management Views
+
+@login_required
+def bills(request):
+    """Display all bills for the current user"""
+    user = request.user
+    
+    # Get filter parameters
+    status_filter = request.GET.get('status', '')
+    frequency_filter = request.GET.get('frequency', '')
+    
+    # Base queryset
+    bills_queryset = Bill.objects.filter(user=user)
+    
+    # Apply filters
+    if status_filter:
+        bills_queryset = bills_queryset.filter(status=status_filter)
+    if frequency_filter:
+        bills_queryset = bills_queryset.filter(frequency=frequency_filter)
+    
+    # Update overdue bills
+    from django.utils import timezone
+    overdue_bills = bills_queryset.filter(
+        due_date__lt=timezone.now().date(),
+        status='PENDING'
+    )
+    overdue_bills.update(status='OVERDUE')
+    
+    # Get bills with additional context
+    bills_list = bills_queryset.order_by('due_date', 'name')
+    
+    # Calculate summary statistics
+    total_pending = bills_queryset.filter(status='PENDING').count()
+    total_overdue = bills_queryset.filter(status='OVERDUE').count()
+    total_paid_this_month = bills_queryset.filter(
+        status='PAID',
+        last_paid_date__month=timezone.now().month,
+        last_paid_date__year=timezone.now().year
+    ).count()
+    
+    # Get bills needing reminders
+    bills_needing_reminders = [bill for bill in bills_list if bill.needs_reminder()]
+    
+    context = {
+        'bills': bills_list,
+        'status_filter': status_filter,
+        'frequency_filter': frequency_filter,
+        'bill_status_choices': Bill.STATUS_CHOICES,
+        'bill_frequency_choices': Bill.FREQUENCY_CHOICES,
+        'total_pending': total_pending,
+        'total_overdue': total_overdue,
+        'total_paid_this_month': total_paid_this_month,
+        'bills_needing_reminders': bills_needing_reminders,
+    }
+    
+    return render(request, 'finwise_app/bills.html', context)
+
+
+@login_required
+def add_bill(request):
+    """Add a new bill"""
+    if request.method == 'POST':
+        try:
+            # Get form data
+            name = request.POST.get('name', '').strip()
+            description = request.POST.get('description', '').strip()
+            amount = Decimal(request.POST.get('amount', '0'))
+            due_date = datetime.strptime(request.POST.get('due_date'), '%Y-%m-%d').date()
+            frequency = request.POST.get('frequency', 'MONTHLY')
+            category_id = request.POST.get('category')
+            reminder_days = int(request.POST.get('reminder_days', 3))
+            reminder_enabled = request.POST.get('reminder_enabled') == 'on'
+            
+            # Validation
+            if not name:
+                messages.error(request, 'Bill name is required.')
+                return redirect('add_bill')
+            
+            if amount <= 0:
+                messages.error(request, 'Amount must be greater than 0.')
+                return redirect('add_bill')
+            
+            # Get related objects
+            category = None
+            if category_id:
+                category = get_object_or_404(Category, id=category_id)
+            
+            # Create bill
+            bill = Bill.objects.create(
+                user=request.user,
+                name=name,
+                description=description,
+                amount=amount,
+                due_date=due_date,
+                frequency=frequency,
+                category=category,
+                reminder_days=reminder_days,
+                reminder_enabled=reminder_enabled,
+            )
+            
+            messages.success(request, f'Bill "{bill.name}" has been added successfully.')
+            return redirect('bills')
+            
+        except ValueError as e:
+            messages.error(request, f'Invalid data provided: {e}')
+        except Exception as e:
+            messages.error(request, f'Error creating bill: {e}')
+    
+    # Get context for form
+    categories = Category.objects.filter(is_active=True).order_by('name')
+    
+    context = {
+        'categories': categories,
+        'bill_frequency_choices': Bill.FREQUENCY_CHOICES,
+    }
+    
+    return render(request, 'finwise_app/add_bill.html', context)
+
+
+@login_required
+def edit_bill(request, bill_id):
+    """Edit an existing bill"""
+    bill = get_object_or_404(Bill, id=bill_id, user=request.user)
+    
+    if request.method == 'POST':
+        try:
+            # Update bill data
+            bill.name = request.POST.get('name', '').strip()
+            bill.description = request.POST.get('description', '').strip()
+            bill.amount = Decimal(request.POST.get('amount', '0'))
+            bill.due_date = datetime.strptime(request.POST.get('due_date'), '%Y-%m-%d').date()
+            bill.frequency = request.POST.get('frequency', 'MONTHLY')
+            bill.reminder_days = int(request.POST.get('reminder_days', 3))
+            bill.reminder_enabled = request.POST.get('reminder_enabled') == 'on'
+            
+            # Update category
+            category_id = request.POST.get('category')
+            if category_id:
+                bill.category = get_object_or_404(Category, id=category_id)
+            else:
+                bill.category = None
+            
+            # Validation
+            if not bill.name:
+                messages.error(request, 'Bill name is required.')
+                return redirect('edit_bill', bill_id=bill.id)
+            
+            if bill.amount <= 0:
+                messages.error(request, 'Amount must be greater than 0.')
+                return redirect('edit_bill', bill_id=bill.id)
+            
+            bill.save()
+            messages.success(request, f'Bill "{bill.name}" has been updated successfully.')
+            return redirect('bills')
+            
+        except ValueError as e:
+            messages.error(request, f'Invalid data provided: {e}')
+        except Exception as e:
+            messages.error(request, f'Error updating bill: {e}')
+    
+    # Get context for form
+    categories = Category.objects.filter(is_active=True).order_by('name')
+    
+    context = {
+        'bill': bill,
+        'categories': categories,
+        'bill_frequency_choices': Bill.FREQUENCY_CHOICES,
+    }
+    
+    return render(request, 'finwise_app/edit_bill.html', context)
+
+
+@login_required
+@require_http_methods(["POST"])
+def delete_bill(request, bill_id):
+    """Delete a bill"""
+    bill = get_object_or_404(Bill, id=bill_id, user=request.user)
+    bill_name = bill.name
+    
+    try:
+        bill.delete()
+        messages.success(request, f'Bill "{bill_name}" has been deleted successfully.')
+    except Exception as e:
+        messages.error(request, f'Error deleting bill: {e}')
+    
+    return redirect('bills')
+
+
+@login_required
+@require_http_methods(["POST"])
+def mark_bill_paid(request, bill_id):
+    """Mark a bill as paid"""
+    bill = get_object_or_404(Bill, id=bill_id, user=request.user)
+    
+    try:
+        paid_date_str = request.POST.get('paid_date')
+        if paid_date_str:
+            paid_date = datetime.strptime(paid_date_str, '%Y-%m-%d').date()
+        else:
+            from django.utils import timezone
+            paid_date = timezone.now().date()
+        
+        bill.mark_as_paid(paid_date)
+        messages.success(request, f'Bill "{bill.name}" has been marked as paid.')
+    except Exception as e:
+        messages.error(request, f'Error marking bill as paid: {e}')
+    
+    return redirect('bills')
+
+
+@login_required
+@require_http_methods(["POST"])
+def mark_bill_pending(request, bill_id):
+    """Mark a bill as pending (unpaid)"""
+    bill = get_object_or_404(Bill, id=bill_id, user=request.user)
+    
+    try:
+        bill.status = 'PENDING'
+        bill.last_paid_date = None
+        bill.save()
+        messages.success(request, f'Bill "{bill.name}" has been marked as pending.')
+    except Exception as e:
+        messages.error(request, f'Error updating bill status: {e}')
+    
+    return redirect('bills')
+
+
+@login_required
+def bill_reminders(request):
+    """Show bills that need reminders"""
+    user = request.user
+    
+    # Get bills needing reminders
+    bills = Bill.objects.filter(user=user, status='PENDING')
+    bills_needing_reminders = [bill for bill in bills if bill.needs_reminder()]
+    
+    # Get overdue bills
+    from django.utils import timezone
+    overdue_bills = bills.filter(due_date__lt=timezone.now().date())
+    
+    context = {
+        'bills_needing_reminders': bills_needing_reminders,
+        'overdue_bills': overdue_bills,
+    }
+    
+    return render(request, 'finwise_app/bill_reminders.html', context)

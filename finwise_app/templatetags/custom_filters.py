@@ -16,3 +16,11 @@ def mul(value, arg):
         return float(value) * float(arg)
     except (ValueError, TypeError):
         return 0
+
+@register.filter
+def abs_value(value):
+    """Return absolute value"""
+    try:
+        return abs(int(value))
+    except (ValueError, TypeError):
+        return 0

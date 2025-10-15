@@ -1,0 +1,272 @@
+{% extends "finwise_app/base.html" %}
+{% load custom_filters %}
+
+{% block title %}Bills - FinWise{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">Dashboard</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Bills</li>
+        </ol>
+    </nav>
+
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-receipt me-2"></i>Bill Management</h2>
+        <div class="d-flex gap-2">
+            <a href="{% url 'bill_reminders' %}" class="btn btn-outline-warning">
+                <i class="bi bi-bell me-1"></i>Reminders
+                {% if bills_needing_reminders %}
+                    <span class="badge bg-warning text-dark ms-1">{{ bills_needing_reminders|length }}</span>
+                {% endif %}
+            </a>
+            <a href="{% url 'add_bill' %}" class="btn btn-primary">
+                <i class="bi bi-plus-lg me-1"></i>Add Bill
+            </a>
+        </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3 mb-3">
+            <div class="metric-card">
+                <div class="metric-value text-warning">{{ total_pending }}</div>
+                <div class="metric-label">Pending Bills</div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="metric-card">
+                <div class="metric-value text-danger">{{ total_overdue }}</div>
+                <div class="metric-label">Overdue Bills</div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="metric-card">
+                <div class="metric-value text-success">{{ total_paid_this_month }}</div>
+                <div class="metric-label">Paid This Month</div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="metric-card">
+                <div class="metric-value text-info">{{ bills|length }}</div>
+                <div class="metric-label">Total Bills</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-4">
+                    <label for="status" class="form-label">Status</label>
+                    <select class="form-select" id="status" name="status">
+                        <option value="">All Statuses</option>
+                        {% for value, display in bill_status_choices %}
+                            <option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>
+                                {{ display }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label for="frequency" class="form-label">Frequency</label>
+                    <select class="form-select" id="frequency" name="frequency">
+                        <option value="">All Frequencies</option>
+                        {% for value, display in bill_frequency_choices %}
+                            <option value="{{ value }}" {% if frequency_filter == value %}selected{% endif %}>
+                                {{ display }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4 d-flex align-items-end">
+                    <button type="submit" class="btn btn-outline-primary me-2">
+                        <i class="bi bi-funnel me-1"></i>Filter
+                    </button>
+                    <a href="{% url 'bills' %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-clockwise me-1"></i>Clear
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Bills List -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="bi bi-list-ul me-2"></i>Your Bills</h5>
+        </div>
+        <div class="card-body p-0">
+            {% if bills %}
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Bill Name</th>
+                                <th>Amount</th>
+                                <th>Due Date</th>
+                                <th>Frequency</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for bill in bills %}
+                                <tr class="{% if bill.is_overdue %}table-danger{% elif bill.needs_reminder %}table-warning{% endif %}">
+                                    <td>
+                                        <div class="d-flex flex-column">
+                                            <strong>{{ bill.name }}</strong>
+                                            {% if bill.description %}
+                                                <small class="text-muted">{{ bill.description|truncatechars:50 }}</small>
+                                            {% endif %}
+                                            {% if bill.category %}
+                                                <small>
+                                                    <span class="badge bg-light text-dark border">
+                                                        {{ bill.category.name }}
+                                                    </span>
+                                                </small>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="fw-bold">${{ bill.amount|floatformat:2 }}</span>
+                                    </td>
+                                    <td>
+                                        <div class="d-flex flex-column">
+                                            <span>{{ bill.due_date|date:"M j, Y" }}</span>
+                                            {% if bill.days_until_due >= 0 %}
+                                                <small class="text-muted">{{ bill.days_until_due }} days left</small>
+                                            {% else %}
+                                                <small class="text-danger">{{ bill.days_until_due|abs_value }} days overdue</small>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-secondary">{{ bill.get_frequency_display_short }}</span>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-{{ bill.get_status_color }}">
+                                            {{ bill.get_status_display }}
+                                        </span>
+                                        {% if bill.needs_reminder %}
+                                            <i class="bi bi-bell-fill text-warning ms-1" title="Reminder needed"></i>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm" role="group">
+                                            {% if bill.status == 'PENDING' or bill.status == 'OVERDUE' %}
+                                                <button type="button" class="btn btn-success" 
+                                                        onclick="markBillPaid({{ bill.id }}, '{{ bill.name }}')">
+                                                    <i class="bi bi-check2"></i>
+                                                </button>
+                                            {% elif bill.status == 'PAID' %}
+                                                <form method="post" action="{% url 'mark_bill_pending' bill.id %}" class="d-inline">
+                                                    {% csrf_token %}
+                                                    <button type="submit" class="btn btn-warning" title="Mark as Unpaid">
+                                                        <i class="bi bi-arrow-counterclockwise"></i>
+                                                    </button>
+                                                </form>
+                                            {% endif %}
+                                            <a href="{% url 'edit_bill' bill.id %}" class="btn btn-outline-primary" title="Edit">
+                                                <i class="bi bi-pencil"></i>
+                                            </a>
+                                            <button type="button" class="btn btn-outline-danger" 
+                                                    onclick="deleteBill({{ bill.id }}, '{{ bill.name }}')" title="Delete">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="text-center py-5">
+                    <i class="bi bi-receipt display-1 text-muted"></i>
+                    <h4 class="mt-3">No Bills Found</h4>
+                    <p class="text-muted mb-4">You haven't added any bills yet. Start by adding your first bill.</p>
+                    <a href="{% url 'add_bill' %}" class="btn btn-primary">
+                        <i class="bi bi-plus-lg me-1"></i>Add Your First Bill
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Mark as Paid Modal -->
+<div class="modal fade" id="markPaidModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Mark Bill as Paid</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" id="markPaidForm">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <p>Mark "<span id="billNameDisplay"></span>" as paid?</p>
+                    <div class="mb-3">
+                        <label for="paidDate" class="form-label">Payment Date</label>
+                        <input type="date" class="form-control" id="paidDate" name="paid_date" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-success">Mark as Paid</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Delete Bill</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete "<span id="deleteBillName"></span>"?</p>
+                <p class="text-danger">This action cannot be undone.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form method="post" id="deleteForm" class="d-inline">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">Delete Bill</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function markBillPaid(billId, billName) {
+    document.getElementById('billNameDisplay').textContent = billName;
+    document.getElementById('markPaidForm').action = `/bills/${billId}/mark-paid/`;
+    
+    // Set today's date as default
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('paidDate').value = today;
+    
+    const modal = new bootstrap.Modal(document.getElementById('markPaidModal'));
+    modal.show();
+}
+
+function deleteBill(billId, billName) {
+    document.getElementById('deleteBillName').textContent = billName;
+    document.getElementById('deleteForm').action = `/bills/${billId}/delete/`;
+    
+    const modal = new bootstrap.Modal(document.getElementById('deleteModal'));
+    modal.show();
+}
+</script>
+{% endblock %}
