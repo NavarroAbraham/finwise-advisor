@@ -148,6 +148,7 @@ def budgets_view(request):
     # Calculate summary stats
     total_budgeted = sum(b.amount for b in budgets)
     total_spent = sum(b.get_spent_amount() for b in budgets)
+    total_remaining = total_budgeted - total_spent
     over_threshold_count = sum(1 for b in budgets if b.is_over_threshold())
     
     context = {
@@ -156,6 +157,7 @@ def budgets_view(request):
         'current_month': current_month,
         'total_budgeted': total_budgeted,
         'total_spent': total_spent,
+        'total_remaining': total_remaining,
         'over_threshold_count': over_threshold_count,
     }
     
@@ -576,6 +578,8 @@ def export_data(request):
 
 @login_required
 @require_http_methods(["POST"])
+@login_required
+@require_http_methods(["POST"])
 def clean_data(request):
     """Clean user data based on selected options"""
     user = request.user
@@ -585,17 +589,19 @@ def clean_data(request):
     clean_budgets = request.POST.get('clean_budgets') == 'on'
     clean_duplicates = request.POST.get('clean_duplicates') == 'on'
     clean_old_data = request.POST.get('clean_old_data') == 'on'
+    clean_bills = request.POST.get('clean_bills') == 'on'
     
     try:
         deleted_count = 0
         
         if clean_duplicates:
-            # Remove duplicate transactions
+            # Remove duplicate transactions based on FITID
             from django.db.models import Count
+            # Find accounts with duplicate FITIDs
             duplicates = Transaction.objects.filter(
                 account__user=user
             ).values(
-                'date', 'description', 'amount', 'account'
+                'fitid', 'account'
             ).annotate(
                 count=Count('id')
             ).filter(count__gt=1)
@@ -604,25 +610,24 @@ def clean_data(request):
                 # Keep the first transaction, delete the rest
                 transactions = Transaction.objects.filter(
                     account__user=user,
-                    date=duplicate['date'],
-                    description=duplicate['description'],
-                    amount=duplicate['amount'],
+                    fitid=duplicate['fitid'],
                     account_id=duplicate['account']
                 ).order_by('id')
                 
                 if transactions.count() > 1:
                     transactions_to_delete = transactions[1:]
-                    for transaction in transactions_to_delete:
-                        transaction.delete()
-                        deleted_count += 1
+                    count = transactions_to_delete.count()
+                    transactions_to_delete.delete()
+                    deleted_count += count
         
         if clean_old_data:
             # Remove transactions older than 2 years
             from datetime import timedelta
-            cutoff_date = date.today() - timedelta(days=730)
+            from django.utils import timezone
+            cutoff_date = timezone.now() - timedelta(days=730)
             old_transactions = Transaction.objects.filter(
                 account__user=user,
-                date__lt=cutoff_date
+                posted_date__lt=cutoff_date
             )
             deleted_count += old_transactions.count()
             old_transactions.delete()
@@ -634,15 +639,14 @@ def clean_data(request):
             transactions.delete()
         
         if clean_categories:
-            # Remove unused categories (not default ones)
-            unused_categories = Category.objects.filter(
-                user=user,
-                transaction__isnull=True,
-                budget__isnull=True
-            ).exclude(name__in=[
-                'Groceries', 'Dining Out', 'Transportation', 'Utilities',
-                'Entertainment', 'Healthcare', 'Shopping', 'Income'
-            ])
+            # Remove custom categories (keep system default ones)
+            # System categories don't have a user, so we only delete user-created ones
+            custom_categories = Category.objects.filter(is_active=True)
+            # Only count categories that don't have transactions or budgets
+            unused_categories = custom_categories.filter(
+                transactions__isnull=True,
+                budgets__isnull=True
+            ).distinct()
             deleted_count += unused_categories.count()
             unused_categories.delete()
         
@@ -651,6 +655,12 @@ def clean_data(request):
             budgets = Budget.objects.filter(user=user)
             deleted_count += budgets.count()
             budgets.delete()
+        
+        if clean_bills:
+            # Remove all bills
+            bills = Bill.objects.filter(user=user)
+            deleted_count += bills.count()
+            bills.delete()
         
         if deleted_count > 0:
             messages.success(request, f"Successfully cleaned {deleted_count} items from your data.")

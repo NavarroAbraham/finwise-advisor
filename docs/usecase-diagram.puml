@@ -1,0 +1,212 @@
+@startuml FinWise_UseCase_Diagram
+!theme plain
+left to right direction
+skinparam packageStyle rectangle
+
+title FinWise Personal Finance Advisor - Use Case Diagram
+
+' Actors
+actor "User" as user
+actor "Financial\nInstitution" as bank
+actor "System\nScheduler" as scheduler
+
+' System Boundary
+rectangle "FinWise System" {
+    
+    ' Authentication Use Cases
+    package "Authentication" {
+        usecase "Register" as UC1
+        usecase "Login" as UC2
+        usecase "Logout" as UC3
+        usecase "Change Password" as UC4
+    }
+    
+    ' Account Management Use Cases
+    package "Account Management" {
+        usecase "View Accounts" as UC5
+        usecase "Add Account\nManually" as UC6
+        usecase "Edit Account" as UC7
+        usecase "Delete Account" as UC8
+        usecase "View Account\nBalance" as UC9
+    }
+    
+    ' Transaction Management Use Cases
+    package "Transaction Management" {
+        usecase "Import OFX File" as UC10
+        usecase "View Transactions" as UC11
+        usecase "Filter Transactions" as UC12
+        usecase "Categorize\nTransaction" as UC13
+        usecase "Auto-Categorize\nTransactions" as UC14
+        usecase "Export Transactions" as UC15
+    }
+    
+    ' Category Management Use Cases
+    package "Category Management" {
+        usecase "View Categories" as UC16
+        usecase "Add Category" as UC17
+        usecase "Edit Category" as UC18
+        usecase "Deactivate\nCategory" as UC19
+        usecase "Set Category\nKeywords" as UC20
+    }
+    
+    ' Budget Management Use Cases
+    package "Budget Management" {
+        usecase "Create Budget" as UC21
+        usecase "View Budgets" as UC22
+        usecase "Edit Budget" as UC23
+        usecase "Delete Budget" as UC24
+        usecase "Track Budget\nProgress" as UC25
+        usecase "View Budget\nAlerts" as UC26
+    }
+    
+    ' Bill Management Use Cases
+    package "Bill Management" {
+        usecase "Add Bill" as UC27
+        usecase "View Bills" as UC28
+        usecase "Edit Bill" as UC29
+        usecase "Delete Bill" as UC30
+        usecase "Mark Bill as Paid" as UC31
+        usecase "View Bill\nReminders" as UC32
+        usecase "Create Recurring\nBills" as UC33
+    }
+    
+    ' Dashboard & Reporting Use Cases
+    package "Dashboard & Analytics" {
+        usecase "View Dashboard" as UC34
+        usecase "View Spending\nAnalytics" as UC35
+        usecase "View Income\nAnalytics" as UC36
+        usecase "View Financial\nSummary" as UC37
+        usecase "View Upcoming\nBills" as UC38
+    }
+}
+
+' User Relationships
+user --> UC1
+user --> UC2
+user --> UC3
+user --> UC4
+
+user --> UC5
+user --> UC6
+user --> UC7
+user --> UC8
+user --> UC9
+
+user --> UC10
+user --> UC11
+user --> UC12
+user --> UC13
+user --> UC15
+
+user --> UC16
+user --> UC17
+user --> UC18
+user --> UC19
+user --> UC20
+
+user --> UC21
+user --> UC22
+user --> UC23
+user --> UC24
+user --> UC25
+user --> UC26
+
+user --> UC27
+user --> UC28
+user --> UC29
+user --> UC30
+user --> UC31
+user --> UC32
+
+user --> UC34
+user --> UC35
+user --> UC36
+user --> UC37
+user --> UC38
+
+' Bank Relationships
+bank --> UC10 : provides OFX
+
+' Scheduler Relationships
+scheduler --> UC33 : automated
+scheduler --> UC32 : automated
+
+' Include Relationships
+UC10 ..> UC14 : <<include>>
+UC13 ..> UC16 : <<include>>
+UC21 ..> UC16 : <<include>>
+UC27 ..> UC16 : <<include>>
+UC31 ..> UC33 : <<include>>
+
+' Extend Relationships
+UC11 ..> UC12 : <<extend>>
+UC22 ..> UC25 : <<extend>>
+UC22 ..> UC26 : <<extend>>
+UC28 ..> UC38 : <<extend>>
+
+' Notes
+note right of UC10
+    **OFX Import**
+    Supports both OFX 1.x (SGML)
+    and OFX 2.x (XML) formats
+    
+    Features:
+    - Duplicate detection
+    - Auto-categorization
+    - Account creation
+end note
+
+note right of UC14
+    **Auto-Categorization**
+    Uses keyword matching against
+    category definitions
+    
+    Users can override and
+    manually re-categorize
+end note
+
+note right of UC33
+    **Recurring Bills**
+    Automatically creates next
+    bill instance when current
+    bill is marked as paid
+    
+    Frequencies:
+    - Weekly
+    - Bi-weekly
+    - Monthly
+    - Quarterly
+    - Yearly
+    - One-time
+end note
+
+note right of UC26
+    **Budget Alerts**
+    Warns users when:
+    - Budget exceeds 80%
+    - Budget exceeds 100%
+    - Unusual spending detected
+end note
+
+note right of UC32
+    **Bill Reminders**
+    Shows upcoming bills:
+    - Due today
+    - Due this week
+    - Overdue bills
+    
+    Configurable reminder days
+end note
+
+note left of UC34
+    **Dashboard**
+    Central hub showing:
+    - Account balances
+    - Recent transactions
+    - Budget status
+    - Upcoming bills
+    - Spending trends
+    - Quick actions
+end note
+
+@enduml

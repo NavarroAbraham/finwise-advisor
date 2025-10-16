@@ -1,0 +1,218 @@
+@startuml FinWise_Class_Diagram
+!theme plain
+title FinWise Personal Finance Advisor - Class/Entity Diagram
+
+' User Model (Django Built-in)
+class User {
+    +id: Integer <<PK>>
+    +username: String <<unique>>
+    +email: String
+    +first_name: String
+    +last_name: String
+    +password: String <<hashed>>
+    +is_active: Boolean
+    +date_joined: DateTime
+    --
+    +authenticate()
+    +set_password()
+    +check_password()
+}
+
+' Account Model
+class Account {
+    +id: Integer <<PK>>
+    +user: ForeignKey <<FK>>
+    +name: String
+    +type: String
+    +balance: Decimal
+    +bank_id: String
+    +account_id: String
+    +created_at: DateTime
+    +updated_at: DateTime
+    --
+    +update_balance()
+    +get_transactions()
+    +__str__()
+}
+
+' Transaction Model
+class Transaction {
+    +id: Integer <<PK>>
+    +account: ForeignKey <<FK>>
+    +category: ForeignKey <<FK, nullable>>
+    +amount: Decimal
+    +description: String
+    +date: Date
+    +transaction_id: String <<unique>>
+    +is_categorized: Boolean
+    +categorized_at: DateTime
+    +created_at: DateTime
+    --
+    +categorize()
+    +is_income()
+    +is_expense()
+    +__str__()
+}
+
+' Category Model
+class Category {
+    +id: Integer <<PK>>
+    +name: String <<unique>>
+    +color: String
+    +keywords: Text
+    +is_active: Boolean
+    +created_at: DateTime
+    --
+    +get_transactions()
+    +get_total_amount()
+    +deactivate()
+    +__str__()
+}
+
+' Budget Model
+class Budget {
+    +id: Integer <<PK>>
+    +user: ForeignKey <<FK>>
+    +category: ForeignKey <<FK>>
+    +name: String
+    +amount: Decimal
+    +period: String
+    +start_date: Date
+    +end_date: Date
+    +created_at: DateTime
+    +updated_at: DateTime
+    --
+    +get_spent_amount()
+    +get_remaining_amount()
+    +get_percentage_used()
+    +is_exceeded()
+    +__str__()
+}
+
+' Bill Model
+class Bill {
+    +id: Integer <<PK>>
+    +user: ForeignKey <<FK>>
+    +category: ForeignKey <<FK, nullable>>
+    +name: String
+    +amount: Decimal
+    +due_date: Date
+    +frequency: String
+    +status: String
+    +reminder_enabled: Boolean
+    +reminder_days: Integer
+    +description: Text
+    +created_at: DateTime
+    +updated_at: DateTime
+    --
+    +mark_as_paid()
+    +mark_as_pending()
+    +is_overdue()
+    +get_next_due_date()
+    +create_next_bill()
+    +__str__()
+}
+
+' Relationships
+User "1" --> "0..*" Account : owns >
+User "1" --> "0..*" Budget : creates >
+User "1" --> "0..*" Bill : manages >
+
+Account "1" --> "0..*" Transaction : contains >
+
+Category "1" --> "0..*" Transaction : categorizes >
+Category "1" --> "0..*" Budget : tracks >
+Category "1" --> "0..*" Bill : assigns to >
+
+' Enumerations
+enum AccountType {
+    CHECKING
+    SAVINGS
+    CREDIT_CARD
+    INVESTMENT
+    LOAN
+    OTHER
+}
+
+enum BudgetPeriod {
+    WEEKLY
+    MONTHLY
+    QUARTERLY
+    YEARLY
+}
+
+enum BillFrequency {
+    ONE_TIME
+    WEEKLY
+    BI_WEEKLY
+    MONTHLY
+    QUARTERLY
+    YEARLY
+}
+
+enum BillStatus {
+    PENDING
+    PAID
+    OVERDUE
+    CANCELLED
+}
+
+' Enum Relationships
+Account ..> AccountType : uses
+Budget ..> BudgetPeriod : uses
+Bill ..> BillFrequency : uses
+Bill ..> BillStatus : uses
+
+' Notes
+note right of User
+    **Built-in Django User Model**
+    Provides authentication and
+    user management functionality
+end note
+
+note right of Transaction
+    **Unique Transaction ID (FITID)**
+    Prevents duplicate imports
+    from OFX files
+    
+    **Auto-categorization**
+    Uses keyword matching from
+    Category model
+end note
+
+note right of Category
+    **System-defined Categories**
+    - Food & Dining
+    - Transportation
+    - Utilities
+    - Entertainment
+    - Healthcare
+    - Shopping
+    - etc.
+end note
+
+note right of Budget
+    **Budget Tracking**
+    Compares actual spending
+    against planned budgets
+    
+    **Period Options:**
+    Weekly, Monthly, Quarterly, Yearly
+end note
+
+note right of Bill
+    **Recurring Bills**
+    Automatically creates next
+    bill instance when paid
+    
+    **Reminder System**
+    Alerts X days before due date
+end note
+
+note bottom of AccountType
+    **Account Types**
+    Matches common financial
+    account classifications
+end note
+
+@enduml

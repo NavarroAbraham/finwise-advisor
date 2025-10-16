@@ -1,0 +1,124 @@
+@startuml FinWise_OFX_Import_Sequence
+!theme plain
+title FinWise - OFX File Import Sequence Diagram
+
+actor User
+participant "Browser" as Browser
+participant "Django Views" as Views
+participant "OFX Importer" as Importer
+participant "Categorization\nService" as Categorizer
+database "Database" as DB
+
+User -> Browser: Upload OFX File
+activate Browser
+
+Browser -> Views: POST /import-transactions/\n(with OFX file)
+activate Views
+
+Views -> Views: Validate User\nAuthentication
+Views -> Views: Validate File\nFormat & Size
+
+Views -> Importer: parse_ofx_file(file_data, user)
+activate Importer
+
+Importer -> Importer: Detect OFX\nVersion (1.x/2.x)
+
+alt OFX Version 2.x (XML)
+    Importer -> Importer: Parse XML\nStructure
+else OFX Version 1.x (SGML)
+    Importer -> Importer: Parse SGML\nStructure
+end
+
+Importer -> Importer: Extract Account\nInformation
+
+Importer -> DB: Check if Account\nExists (bank_id, account_id)
+activate DB
+DB --> Importer: Account or None
+deactivate DB
+
+alt Account Not Found
+    Importer -> DB: Create New\nAccount Record
+    activate DB
+    DB --> Importer: New Account
+    deactivate DB
+end
+
+Importer -> Importer: Extract Transaction\nList
+
+loop For Each Transaction
+    Importer -> Importer: Parse Transaction\nData (FITID, Date, Amount, Memo)
+    
+    Importer -> DB: Check if Transaction\nExists (FITID)
+    activate DB
+    DB --> Importer: Exists? (True/False)
+    deactivate DB
+    
+    alt Transaction Not Found (New)
+        Importer -> Categorizer: auto_categorize(transaction_memo)
+        activate Categorizer
+        
+        Categorizer -> DB: Get Active Categories
+        activate DB
+        DB --> Categorizer: Category List
+        deactivate DB
+        
+        Categorizer -> Categorizer: Match Keywords\nAgainst Categories
+        
+        Categorizer --> Importer: Suggested Category
+        deactivate Categorizer
+        
+        Importer -> DB: Create Transaction\nRecord (with category)
+        activate DB
+        DB --> Importer: New Transaction
+        deactivate DB
+        
+        note right of Importer
+            Transaction Details:
+            - Amount
+            - Date
+            - Description/Memo
+            - Transaction ID (FITID)
+            - Category (auto-assigned)
+            - Account Reference
+        end note
+        
+    else Transaction Already Exists
+        Importer -> Importer: Skip Duplicate\nTransaction
+        note right of Importer
+            Duplicate Prevention:
+            Uses FITID (Financial
+            Institution Transaction ID)
+            to detect duplicates
+        end note
+    end
+end
+
+Importer --> Views: Return Import\nResults (stats)
+deactivate Importer
+
+Views -> Views: Format Success\nMessage
+
+Views -> DB: Commit Transaction
+activate DB
+DB --> Views: Success
+deactivate DB
+
+Views --> Browser: HTTP Response\n(Success + Stats)
+deactivate Views
+
+Browser -> Browser: Display Results:\n- Total Transactions\n- New Transactions\n- Duplicates Skipped\n- Account Info
+
+Browser --> User: Show Success Message\nand Statistics
+deactivate Browser
+
+note over User, DB
+    **Import Statistics Shown:**
+    - File Name
+    - Account Name & Type
+    - Total Transactions Found
+    - New Transactions Imported
+    - Duplicate Transactions Skipped
+    - Date Range Imported
+end note
+
+@enduml

@@ -1,0 +1,176 @@
+@startuml FinWise_Deployment_Diagram
+!theme plain
+skinparam componentStyle rectangle
+skinparam backgroundColor #FEFEFE
+skinparam shadowing false
+
+title FinWise Personal Finance Advisor - Deployment Diagram
+
+' Client Layer
+node "Client Browser" as client {
+    component "Web Browser" as browser {
+        [HTML/CSS/JavaScript] as frontend
+        [Bootstrap 5.3.3] as bootstrap
+        [Bootstrap Icons] as icons
+    }
+}
+
+' Web Server Layer
+node "Web Server" as webserver <<Device>> {
+    component "Django 5.2" as django {
+        [WSGI Server] as wsgi
+        [URL Router] as router
+        [Middleware Stack] as middleware
+    }
+}
+
+' Application Layer
+node "Application Server" as appserver <<Device>> {
+    package "FinWise Application" {
+        component "Views Layer" as views {
+            [Authentication Views] as auth_views
+            [Dashboard Views] as dash_views
+            [Transaction Views] as trans_views
+            [Budget Views] as budget_views
+            [Bill Views] as bill_views
+            [Category Views] as cat_views
+        }
+        
+        component "Business Logic" as services {
+            [OFX Importer] as ofx_service
+            [Categorization Service] as cat_service
+            [Bill Scheduler] as bill_scheduler
+        }
+        
+        component "Models Layer" as models {
+            [User Model] as user_model
+            [Account Model] as account_model
+            [Transaction Model] as trans_model
+            [Budget Model] as budget_model
+            [Bill Model] as bill_model
+            [Category Model] as cat_model
+        }
+        
+        component "Template Engine" as templates {
+            [Django Templates] as django_templates
+            [Template Tags] as template_tags
+            [Custom Filters] as custom_filters
+        }
+    }
+}
+
+' Data Layer
+node "Database Server" as dbserver <<Device>> {
+    database "SQLite Database" as sqlite {
+        folder "Tables" {
+            [auth_user]
+            [finwise_account]
+            [finwise_transaction]
+            [finwise_category]
+            [finwise_budget]
+            [finwise_bill]
+        }
+    }
+}
+
+' File System
+node "File System" as filesystem <<Device>> {
+    folder "Static Files" {
+        [CSS Files]
+        [JavaScript Modules]
+        [Images]
+    }
+    
+    folder "Media Files" {
+        [Uploaded OFX Files]
+    }
+    
+    folder "Migrations" {
+        [Database Migrations]
+    }
+}
+
+' External Services
+cloud "External Services" as external {
+    component "Financial Institutions" as banks {
+        [OFX File Export]
+    }
+}
+
+' Connections - Client to Web Server
+frontend --> wsgi : "HTTP/HTTPS Requests"
+wsgi --> router : "Route Request"
+router --> middleware : "Process Middleware"
+
+' Connections - Web Server to Application
+middleware --> views : "Dispatch to Views"
+views --> services : "Business Logic Calls"
+services --> models : "Data Access"
+
+' Connections - Application to Database
+models --> sqlite : "ORM Queries\n(Django ORM)"
+
+' Connections - Template Processing
+views --> templates : "Render Templates"
+templates --> frontend : "HTML Response"
+
+' Connections - Static Files
+frontend --> [CSS Files] : "Load CSS"
+frontend --> [JavaScript Modules] : "Load JS"
+frontend --> [Images] : "Load Images"
+
+' Connections - File Upload
+frontend --> [Uploaded OFX Files] : "Upload OFX"
+ofx_service --> [Uploaded OFX Files] : "Parse OFX"
+
+' Connections - External Services
+[OFX File Export] --> frontend : "User Downloads"
+
+' Connections - Migrations
+[Database Migrations] --> sqlite : "Schema Updates"
+
+' Notes
+note right of client
+  **Client Side Technologies:**
+  - HTML5
+  - CSS3 (Custom + Bootstrap)
+  - JavaScript (ES6+)
+  - Nielsen's Usability Principles
+  - Responsive Design
+end note
+
+note right of webserver
+  **Development Server:**
+  - Django Development Server
+  **Production Options:**
+  - Gunicorn + Nginx
+  - Apache + mod_wsgi
+  - Uvicorn (ASGI)
+end note
+
+note right of appserver
+  **Core Features:**
+  - User Authentication
+  - Account Management
+  - Transaction Import (OFX)
+  - Categorization Engine
+  - Budget Tracking
+  - Bill Reminders
+  - Analytics Dashboard
+end note
+
+note right of dbserver
+  **Database:**
+  - SQLite3 (Development)
+  - PostgreSQL (Production Option)
+  - MySQL (Production Option)
+end note
+
+note bottom of external
+  **Supported File Formats:**
+  - OFX 1.x (SGML)
+  - OFX 2.x (XML)
+  - Manual entry supported
+end note
+
+@enduml

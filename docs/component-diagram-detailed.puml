@@ -1,0 +1,196 @@
+@startuml FinWise_Component_Diagram
+!theme plain
+skinparam componentStyle rectangle
+
+title FinWise Personal Finance Advisor - Component Diagram
+
+' Presentation Layer
+package "Presentation Layer" {
+    component [Web Browser] as browser
+    component [HTML/CSS/JS] as frontend
+    component [Bootstrap UI] as ui
+}
+
+' Web Layer
+package "Web Layer" {
+    component [Django URL Router] as router
+    component [Middleware] as middleware
+    component [CSRF Protection] as csrf
+    component [Authentication] as auth_middleware
+}
+
+' Application Layer
+package "Application Layer" {
+    
+    package "View Controllers" {
+        component [Auth Views] as auth_views
+        component [Dashboard Views] as dashboard
+        component [Transaction Views] as transactions
+        component [Budget Views] as budgets
+        component [Bill Views] as bills
+        component [Category Views] as categories
+    }
+    
+    package "Business Services" {
+        component [OFX Importer Service] as ofx_importer
+        component [Transaction Categorization] as categorizer
+        component [Bill Scheduler Service] as bill_scheduler
+        component [Budget Calculator] as budget_calc
+    }
+    
+    package "Template System" {
+        component [Django Templates] as templates
+        component [Custom Filters] as filters
+        component [Template Tags] as tags
+    }
+}
+
+' Data Access Layer
+package "Data Access Layer" {
+    component [Django ORM] as orm
+    
+    package "Models" {
+        component [User Model] as user
+        component [Account Model] as account
+        component [Transaction Model] as transaction
+        component [Category Model] as category
+        component [Budget Model] as budget
+        component [Bill Model] as bill
+    }
+}
+
+' Data Storage
+package "Data Storage" {
+    database "SQLite DB" as db {
+        folder "Tables" {
+            [auth_user]
+            [finwise_account]
+            [finwise_transaction]
+            [finwise_category]
+            [finwise_budget]
+            [finwise_bill]
+        }
+    }
+    
+    folder "File System" {
+        [Static Files]
+        [Media Files]
+        [OFX Uploads]
+    }
+}
+
+' External Systems
+cloud "External Systems" {
+    [Financial Institutions] as banks
+    [OFX File Providers] as ofx_providers
+}
+
+' Relationships - Presentation to Web
+browser --> frontend
+frontend --> router : "HTTP Request"
+
+' Relationships - Web Layer
+router --> middleware
+middleware --> csrf
+middleware --> auth_middleware
+auth_middleware --> auth_views : "Authenticated"
+
+' Relationships - Controllers
+router --> auth_views
+router --> dashboard
+router --> transactions
+router --> budgets
+router --> bills
+router --> categories
+
+' Relationships - Views to Services
+transactions --> ofx_importer
+transactions --> categorizer
+budgets --> budget_calc
+bills --> bill_scheduler
+
+' Relationships - Services to Models
+ofx_importer --> transaction
+ofx_importer --> account
+categorizer --> category
+categorizer --> transaction
+budget_calc --> budget
+budget_calc --> transaction
+bill_scheduler --> bill
+
+' Relationships - Views to Templates
+auth_views --> templates
+dashboard --> templates
+transactions --> templates
+budgets --> templates
+bills --> templates
+categories --> templates
+
+templates --> filters
+templates --> tags
+
+' Relationships - Models to ORM
+user --> orm
+account --> orm
+transaction --> orm
+category --> orm
+budget --> orm
+bill --> orm
+
+' Relationships - ORM to Database
+orm --> db : "SQL Queries"
+
+' Relationships - File Access
+ofx_importer --> [OFX Uploads] : "Read/Parse"
+frontend --> [Static Files] : "Load Resources"
+
+' Relationships - External
+banks --> frontend : "Download OFX"
+ofx_providers --> frontend : "Download OFX"
+
+' Relationships - Response
+templates --> frontend : "HTML Response"
+
+' Notes
+note right of browser
+  **Client Features:**
+  - Responsive Design
+  - Dark Mode Toggle
+  - Real-time Validation
+  - Interactive Charts
+  - Nielsen's Usability
+end note
+
+note right of ofx_importer
+  **Import Features:**
+  - OFX 1.x (SGML)
+  - OFX 2.x (XML)
+  - Duplicate Detection
+  - Auto-categorization
+end note
+
+note right of categorizer
+  **Categorization:**
+  - Keyword Matching
+  - Machine Learning Ready
+  - Manual Override
+  - Category History
+end note
+
+note right of bill_scheduler
+  **Bill Features:**
+  - Recurring Bills
+  - Reminders
+  - Status Tracking
+  - Multiple Frequencies
+end note
+
+note right of db
+  **Database:**
+  - Development: SQLite
+  - Production: PostgreSQL/MySQL
+  - Migrations Support
+  - Data Integrity
+end note
+
+@enduml

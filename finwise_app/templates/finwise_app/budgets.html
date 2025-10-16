@@ -41,7 +41,7 @@
             <div class="card-body text-center">
               <i class="bi bi-piggy-bank text-success mb-2" style="font-size: 2rem;"></i>
               <h5 class="card-title text-success">Remaining</h5>
-              <h3 class="mb-0">${{ total_budgeted|add:total_spent|mul:-1|floatformat:2 }}</h3>
+              <h3 class="mb-0 {% if total_remaining < 0 %}text-danger{% endif %}">${{ total_remaining|floatformat:2 }}</h3>
             </div>
           </div>
         </div>
@@ -90,7 +90,7 @@
                   <td><strong>${{ budget.amount|floatformat:2 }}</strong></td>
                   <td><span class="text-warning fw-bold">${{ budget.get_spent_amount|floatformat:2 }}</span></td>
                   <td>
-                    {% with remaining=budget.amount|add:budget.get_spent_amount|mul:-1 %}
+                    {% with remaining=budget.get_remaining_amount %}
                       <span class="fw-bold {% if remaining < 0 %}text-danger{% else %}text-success{% endif %}">
                         ${{ remaining|floatformat:2 }}
                       </span>

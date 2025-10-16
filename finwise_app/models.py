@@ -75,6 +75,11 @@ class Budget(models.Model):
 		
 		return abs(spent)  # Return positive amount
 
+	def get_remaining_amount(self) -> Decimal:
+		"""Calculate remaining budget amount"""
+		spent = self.get_spent_amount()
+		return self.amount - spent
+
 	def get_percentage_used(self) -> float:
 		"""Get percentage of budget used"""
 		if self.amount <= 0:
