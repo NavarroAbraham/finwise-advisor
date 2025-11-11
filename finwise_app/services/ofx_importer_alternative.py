@@ -11,6 +11,7 @@ from typing import Iterable, Optional
 import re
 
 from django.db import transaction as db_transaction
+from django.contrib.auth.models import User
 from ..models import Account, Transaction
 
 
@@ -142,12 +143,13 @@ def parse_ofx_alternative(content: bytes) -> tuple[dict, list[ImportedTxn]]:
     return acct_info, txns
 
 
-def import_ofx_alternative(content: bytes) -> tuple[Account, int]:
+def import_ofx_alternative(content: bytes, user: User) -> tuple[Account, int]:
     """Parse and persist OFX content using alternative parser. Returns (account, created_count)."""
     acct_info, txns = parse_ofx_alternative(content)
 
     with db_transaction.atomic():
         account, _ = Account.objects.get_or_create(
+            user=user,
             type=acct_info["type"],
             bank_id=acct_info.get("bank_id"),
             account_id=acct_info.get("account_id") or "",

@@ -14,6 +14,7 @@ try:
 except Exception as e:  # pragma: no cover - import-time failure surfaced to caller
     OFXTree = None  # type: ignore
 
+from django.contrib.auth.models import User
 from ..models import Account, Transaction
 
 
@@ -184,12 +185,13 @@ def parse_ofx(content: bytes) -> tuple[dict, list[ImportedTxn]]:
     return acct_info, txns
 
 
-def import_ofx(content: bytes) -> tuple[Account, int]:
+def import_ofx(content: bytes, user: User) -> tuple[Account, int]:
     """Parse and persist OFX content. Returns (account, created_count)."""
     acct_info, txns = parse_ofx(content)
 
     with db_transaction.atomic():
         account, _ = Account.objects.get_or_create(
+            user=user,
             type=acct_info["type"],
             bank_id=acct_info.get("bank_id"),
             account_id=acct_info.get("account_id") or "",

@@ -106,6 +106,27 @@ body {
   color: var(--text-primary);
 }
 
+/* Card Hover Effect for Interactive Cards */
+.card-hover {
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.card-hover:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 8px 24px var(--shadow) !important;
+}
+
+.card-hover:hover i {
+  transform: scale(1.1);
+  transition: transform 0.3s ease;
+}
+
+.card-hover:hover h5,
+.card-hover:hover p {
+  color: var(--accent-color);
+}
+
 /* Enhanced Table Styles */
 .table-enhanced {
   --bs-table-bg: var(--table-bg);

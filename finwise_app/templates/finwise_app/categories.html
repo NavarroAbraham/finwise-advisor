@@ -58,10 +58,11 @@
                     <strong>${{ stats.recent_amount|default:0|floatformat:2 }}</strong>
                   {% endwith %}
                 </div>
-                <div>
-                  <span class="badge" style="background-color: {{ category.color }}; color: white;">
-                    {{ category.color }}
-                  </span>
+                <div class="text-end">
+                  <small class="text-muted">Total Spent:</small><br>
+                  {% with stats=category_stats|lookup:category.id %}
+                    <strong class="text-warning">${{ stats.total_amount|default:0|floatformat:2 }}</strong>
+                  {% endwith %}
                 </div>
               </div>
             </div>
@@ -99,6 +100,7 @@
                 <tr>
                   <th><i class="bi bi-tag me-1"></i>Category</th>
                   <th><i class="bi bi-list-ol me-1"></i>Total Transactions</th>
+                  <th><i class="bi bi-currency-dollar me-1"></i>Total Spent</th>
                   <th><i class="bi bi-calendar-month me-1"></i>This Month</th>
                   <th><i class="bi bi-key me-1"></i>Keywords Count</th>
                   <th><i class="bi bi-toggle-on me-1"></i>Status</th>
@@ -121,6 +123,13 @@
                         {{ stats.transaction_count|default:0 }}
                       {% endwith %}
                     </strong>
+                  </td>
+                  <td>
+                    <span class="text-warning fw-bold">
+                      {% with stats=category_stats|lookup:category.id %}
+                        ${{ stats.total_amount|default:0|floatformat:2 }}
+                      {% endwith %}
+                    </span>
                   </td>
                   <td>
                     <span class="text-success fw-bold">

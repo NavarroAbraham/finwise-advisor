@@ -1,7 +1,7 @@
 {% extends 'finwise_app/base.html' %}
 {% load custom_filters %}
 {% block content %}
-<div class="d-flex align-items-center justify-content-between">
+<div class="d-flex align-items-center justify-content-between mb-4">
 	<h1 class="h3">Dashboard</h1>
 	<div>
 		<a class="btn btn-outline-primary me-2" href="{% url 'budgets' %}">Budgets</a>
@@ -63,6 +63,60 @@
 {% endif %}
 
 <div class="row" id="summary">
+	<!-- Filter Section -->
+	<div class="col-12 mb-4">
+		<div class="card border-secondary">
+			<div class="card-header">
+				<h6 class="mb-0"><i class="bi bi-funnel me-2"></i>Filter Recent Transactions</h6>
+			</div>
+			<div class="card-body">
+				<form method="get" class="row g-3">
+					<div class="col-md-4">
+						<label for="account" class="form-label">Account</label>
+						<select class="form-select" name="account" id="account">
+							<option value="" {% if not selected_account_id %}selected{% endif %}>All Accounts</option>
+							{% for account in accounts %}
+								<option value="{{ account.id }}" {% if selected_account_id == account.id %}selected{% endif %}>
+									{{ account.name|default:account.account_id }} ({{ account.get_type_display }})
+								</option>
+							{% endfor %}
+						</select>
+					</div>
+					<div class="col-md-4">
+						<label for="category" class="form-label">Category</label>
+						<select class="form-select" name="category" id="category">
+							<option value="" {% if not selected_category_id and not selected_uncategorized %}selected{% endif %}>All Categories</option>
+							<option value="uncategorized" {% if selected_uncategorized %}selected{% endif %}>Uncategorized</option>
+							{% for category in categories %}
+								<option value="{{ category.id }}" {% if selected_category_id == category.id %}selected{% endif %}>
+									{{ category.name }}
+								</option>
+							{% endfor %}
+						</select>
+					</div>
+					<div class="col-md-4">
+						<label for="days" class="form-label">Time Period</label>
+						<select class="form-select" name="days" id="days">
+							<option value="7" {% if days_filter == 7 %}selected{% endif %}>Last 7 days</option>
+							<option value="30" {% if days_filter == 30 %}selected{% endif %}>Last 30 days</option>
+							<option value="90" {% if days_filter == 90 %}selected{% endif %}>Last 90 days</option>
+							<option value="365" {% if days_filter == 365 %}selected{% endif %}>Last year</option>
+							<option value="0" {% if days_filter == 0 %}selected{% endif %}>All time</option>
+						</select>
+					</div>
+					<div class="col-md-12">
+						<button type="submit" class="btn btn-primary">
+							<i class="bi bi-funnel me-1"></i>Apply Filters
+						</button>
+						<a href="{% url 'dashboard' %}" class="btn btn-outline-secondary">
+							<i class="bi bi-arrow-clockwise me-1"></i>Clear Filters
+						</a>
+					</div>
+				</form>
+			</div>
+		</div>
+	</div>
+
 	<div class="col-md-6">
 		<div class="card mb-3 accounts-table">
 			<div class="card-header d-flex justify-content-between align-items-center">
@@ -105,7 +159,12 @@
 	<div class="col-md-6">
 		<div class="card mb-3 transactions-table">
 			<div class="card-header d-flex justify-content-between align-items-center">
-				<span><i class="bi bi-clock-history me-2"></i>Recent Transactions</span>
+				<span>
+					<i class="bi bi-clock-history me-2"></i>Recent Transactions
+					{% if filters_active %}
+						<span class="badge bg-info">Filtered</span>
+					{% endif %}
+				</span>
 				<a href="{% url 'categories' %}" class="btn btn-sm btn-outline-secondary">
 					<i class="bi bi-tags me-1"></i>Categories
 				</a>

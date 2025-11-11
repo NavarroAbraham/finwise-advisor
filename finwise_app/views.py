@@ -8,7 +8,7 @@ from django.core.files.uploadedfile import UploadedFile
 from django.http import JsonResponse
 from django.db.models import Sum, Q
 from django.utils import timezone
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from decimal import Decimal
 
 from .services.ofx_importer import import_ofx
@@ -58,9 +58,68 @@ def register_view(request):
 
     return render(request, 'finwise_app/register.html')
 
+@login_required
 def dashboard(request):
-    accounts = Account.objects.all().order_by("name", "account_id")[:20]
-    recent = Transaction.objects.select_related("account", "category").all().order_by("-posted_date")[:10]
+    # Get filter parameters
+    account_filter = request.GET.get('account', '')
+    category_filter = request.GET.get('category', '')
+    days_filter = request.GET.get('days', '30')  # Default to 30 days
+
+    selected_account_id: int | None = None
+    if account_filter:
+        try:
+            selected_account_id = int(account_filter)
+        except (ValueError, TypeError):
+            account_filter = ''
+
+    selected_category_id: int | None = None
+    selected_uncategorized = False
+    if category_filter:
+        if category_filter == 'uncategorized':
+            selected_uncategorized = True
+        else:
+            try:
+                selected_category_id = int(category_filter)
+            except (ValueError, TypeError):
+                category_filter = ''
+    
+    try:
+        days_filter = int(days_filter)
+    except (ValueError, TypeError):
+        days_filter = 30
+    
+    # Get all accounts for current user
+    accounts = Account.objects.filter(user=request.user).order_by("name", "account_id")[:20]
+    categories = (
+        Category.objects.filter(
+            Q(transactions__account__user=request.user) | Q(budgets__user=request.user)
+        )
+        .distinct()
+        .order_by("name")
+    )
+    
+    # Get transactions with optional filters
+    recent_query = Transaction.objects.filter(account__user=request.user).select_related("account", "category")
+    
+    # Apply account filter if specified
+    if selected_account_id:
+        recent_query = recent_query.filter(account_id=selected_account_id)
+    
+    # Apply date filter if specified
+    if days_filter > 0:
+        cutoff_date = timezone.now() - timedelta(days=days_filter)
+        recent_query = recent_query.filter(posted_date__gte=cutoff_date)
+
+    # Apply category filter if specified
+    if selected_uncategorized:
+        recent_query = recent_query.filter(category__isnull=True)
+    elif selected_category_id:
+        recent_query = recent_query.filter(category_id=selected_category_id)
+    
+    recent = recent_query.order_by("-posted_date")[:10]
+    filters_active = bool(
+        selected_account_id or selected_category_id or selected_uncategorized or days_filter != 30
+    )
     
     # Get budget summary for current month if user is logged in
     budget_summary = None
@@ -78,8 +137,16 @@ def dashboard(request):
     
     return render(request, 'finwise_app/dashboard.html', {
         "accounts": accounts, 
+        "categories": categories,
         "recent": recent,
-        "budget_summary": budget_summary
+        "budget_summary": budget_summary,
+        "account_filter": account_filter,
+        "selected_account_id": selected_account_id,
+        "category_filter": category_filter,
+        "selected_category_id": selected_category_id,
+        "selected_uncategorized": selected_uncategorized,
+        "days_filter": days_filter,
+        "filters_active": filters_active,
     })
 
 
@@ -96,7 +163,7 @@ def import_transactions(request):
             
             # Try the main ofxtools-based parser first
             try:
-                account, created_count = import_ofx(content)
+                account, created_count = import_ofx(content, request.user)
                 messages.success(
                     request,
                     f"Imported {created_count} transactions into account {account}.",
@@ -105,7 +172,7 @@ def import_transactions(request):
             except Exception as primary_error:
                 # Fallback to alternative regex-based parser
                 try:
-                    account, created_count = import_ofx_alternative(content)
+                    account, created_count = import_ofx_alternative(content, request.user)
                     messages.success(
                         request,
                         f"Imported {created_count} transactions into account {account} (using alternative parser).",
@@ -133,32 +200,61 @@ def logout_view(request):
 
 @login_required
 def budgets_view(request):
-    """FR05: Display user's budgets with create/edit/delete functionality"""
+    """FR05: Display user's budgets and goals with create/edit/delete functionality"""
     current_month = date.today().replace(day=1)
     
+    # Get filter parameter (BUDGET, GOAL, or ALL)
+    budget_type_filter = request.GET.get('type', 'BUDGET')  # Default to BUDGET
+    
     # Get current month budgets
-    budgets = Budget.objects.filter(
+    budgets_query = Budget.objects.filter(
         user=request.user, 
         month=current_month
     ).select_related('category').order_by('category__name')
     
+    # Filter by type if specified
+    if budget_type_filter == 'BUDGET':
+        budgets = budgets_query.filter(budget_type='BUDGET')
+        goals = []
+        page_title = "Spending Limits"
+    elif budget_type_filter == 'GOAL':
+        budgets = []
+        goals = budgets_query.filter(budget_type='GOAL')
+        page_title = "Savings Goals"
+    else:  # ALL
+        budgets = budgets_query.filter(budget_type='BUDGET')
+        goals = budgets_query.filter(budget_type='GOAL')
+        page_title = "Budgets & Goals"
+    
     # Get all categories for creating new budgets
     categories = Category.objects.filter(is_active=True).order_by('name')
     
-    # Calculate summary stats
+    # Calculate summary stats for budgets (spending limits)
     total_budgeted = sum(b.amount for b in budgets)
     total_spent = sum(b.get_spent_amount() for b in budgets)
     total_remaining = total_budgeted - total_spent
     over_threshold_count = sum(1 for b in budgets if b.is_over_threshold())
     
+    # Calculate summary stats for goals (savings targets)
+    total_goal_amount = sum(g.amount for g in goals)
+    total_goal_saved = sum(g.get_spent_amount() for g in goals)  # Reusing method for savings
+    total_goal_progress = total_goal_saved if total_goal_amount > 0 else 0
+    goal_completion_pct = (total_goal_saved / total_goal_amount * 100) if total_goal_amount > 0 else 0
+    
     context = {
         'budgets': budgets,
+        'goals': goals,
         'categories': categories,
         'current_month': current_month,
         'total_budgeted': total_budgeted,
         'total_spent': total_spent,
         'total_remaining': total_remaining,
         'over_threshold_count': over_threshold_count,
+        'total_goal_amount': total_goal_amount,
+        'total_goal_saved': total_goal_saved,
+        'goal_completion_pct': goal_completion_pct,
+        'budget_type_filter': budget_type_filter,
+        'page_title': page_title,
     }
     
     return render(request, 'finwise_app/budgets.html', context)
@@ -167,17 +263,18 @@ def budgets_view(request):
 @login_required
 @require_http_methods(["POST"])
 def create_budget(request):
-    """FR05: Create a new monthly budget for a category"""
+    """FR05: Create a new monthly budget or goal for a category"""
     category_id = request.POST.get('category_id')
     amount = request.POST.get('amount')
     month_str = request.POST.get('month')  # Format: YYYY-MM
+    budget_type = request.POST.get('budget_type', 'BUDGET')  # BUDGET or GOAL
     
     try:
         category = get_object_or_404(Category, id=category_id, is_active=True)
         amount = Decimal(amount)
         
         if amount <= 0:
-            messages.error(request, "Budget amount must be greater than zero.")
+            messages.error(request, "Amount must be greater than zero.")
             return redirect('budgets')
         
         # Parse month
@@ -187,16 +284,22 @@ def create_budget(request):
         else:
             budget_month = date.today().replace(day=1)
         
-        # Create or update budget
+        # Create or update budget/goal
         budget, created = Budget.objects.update_or_create(
             user=request.user,
             category=category,
             month=budget_month,
-            defaults={'amount': amount}
+            defaults={'amount': amount, 'budget_type': budget_type}
         )
         
+        # Update budget_type if it changed
+        if not created and budget.budget_type != budget_type:
+            budget.budget_type = budget_type
+            budget.save()
+        
+        type_name = "Budget" if budget_type == "BUDGET" else "Goal"
         action = "created" if created else "updated"
-        messages.success(request, f"Budget for {category.name} {action} successfully.")
+        messages.success(request, f"{type_name} for {category.name} {action} successfully.")
         
     except (ValueError, TypeError):
         messages.error(request, "Invalid amount entered.")
@@ -281,16 +384,19 @@ def budget_api_data(request):
 
 
 @login_required
+@login_required
 def categories_view(request):
-    """Manage spending categories"""
+    """Manage spending categories - show spending per category for current user"""
     categories = Category.objects.filter(is_active=True).order_by('name')
     
-    # Get transaction counts per category
+    # Get transaction counts and spending per category for current user
     category_stats = {}
     for category in categories:
+        user_transactions = category.transactions.filter(account__user=request.user)
         category_stats[category.id] = {
-            'transaction_count': category.transactions.count(),
-            'recent_amount': category.transactions.filter(
+            'transaction_count': user_transactions.count(),
+            'total_amount': user_transactions.aggregate(total=Sum('amount'))['total'] or Decimal('0'),
+            'recent_amount': user_transactions.filter(
                 posted_date__gte=date.today().replace(day=1)
             ).aggregate(total=Sum('amount'))['total'] or Decimal('0')
         }
@@ -578,8 +684,6 @@ def export_data(request):
 
 @login_required
 @require_http_methods(["POST"])
-@login_required
-@require_http_methods(["POST"])
 def clean_data(request):
     """Clean user data based on selected options"""
     user = request.user
@@ -639,16 +743,9 @@ def clean_data(request):
             transactions.delete()
         
         if clean_categories:
-            # Remove custom categories (keep system default ones)
-            # System categories don't have a user, so we only delete user-created ones
-            custom_categories = Category.objects.filter(is_active=True)
-            # Only count categories that don't have transactions or budgets
-            unused_categories = custom_categories.filter(
-                transactions__isnull=True,
-                budgets__isnull=True
-            ).distinct()
-            deleted_count += unused_categories.count()
-            unused_categories.delete()
+            # Categories are global and shared - don't delete them
+            # Instead, just inform the user that categories cannot be cleaned
+            messages.info(request, "Categories are shared system-wide and cannot be deleted individually.")
         
         if clean_budgets:
             # Remove all budgets
