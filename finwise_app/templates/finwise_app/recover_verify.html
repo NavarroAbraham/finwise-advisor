@@ -1,0 +1,44 @@
+{% extends 'finwise_app/base.html' %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-6 col-lg-5">
+    <div class="card shadow">
+      <div class="card-header text-center">
+        <i class="bi bi-key text-primary mb-2" style="font-size: 2.5rem;"></i>
+        <h4 class="mb-0">Enter the code</h4>
+        <p class="text-muted mb-0">We sent a 6-digit code to your email</p>
+      </div>
+      <div class="card-body">
+        <form method="post" class="vstack gap-3">
+          {% csrf_token %}
+          <div>
+            <label class="form-label" for="email">
+              <i class="bi bi-envelope me-2"></i>Email address
+            </label>
+            <input class="form-control" type="email" name="email" id="email" placeholder="you@example.com" value="{{ prefill_email }}" required autocomplete="email">
+          </div>
+          <div>
+            <label class="form-label" for="code">
+              <i class="bi bi-123 me-2"></i>6-digit code
+            </label>
+            <input class="form-control" type="text" name="code" id="code" placeholder="000000" minlength="6" maxlength="6" pattern="\\d{6}" inputmode="numeric" required>
+          </div>
+          <button class="btn btn-primary w-100" type="submit">
+            <i class="bi bi-check2-circle me-2"></i>Verify code
+          </button>
+        </form>
+        <div class="text-center mt-3">
+          <a class="text-decoration-none" href="{% url 'recover_request' %}">
+            <i class="bi bi-arrow-repeat me-1"></i>Resend code
+          </a>
+        </div>
+      </div>
+      <div class="card-footer text-center">
+        <a class="text-decoration-none" href="{% url 'login' %}">
+          <i class="bi bi-box-arrow-in-left me-1"></i>Back to sign in
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -127,7 +127,6 @@ class RecognitionManager {
     addContextualHelp() {
         this.addPageSpecificHelp();
         this.addFormHelp();
-        this.addTableHelp();
     }
 
     addPageSpecificHelp() {
@@ -335,82 +334,6 @@ class RecognitionManager {
         `;
 
         passwordInput.parentNode.appendChild(helpContent);
-    }
-
-    addTableHelp() {
-        const tables = document.querySelectorAll('.table-enhanced');
-        tables.forEach(table => {
-            this.addTableFeatureHelp(table);
-        });
-    }
-
-    addTableFeatureHelp(table) {
-        const wrapper = table.closest('.card');
-        if (wrapper) {
-            const helpButton = document.createElement('button');
-            helpButton.className = 'btn btn-sm btn-outline-info';
-            helpButton.innerHTML = '<i class="bi bi-question-circle me-1"></i>Table Help';
-            helpButton.onclick = () => this.showTableHelp();
-
-            const header = wrapper.querySelector('.card-header');
-            if (header) {
-                const existingActions = header.querySelector('.d-flex.justify-content-between .btn, .d-flex.justify-content-between .badge');
-                if (existingActions) {
-                    existingActions.parentNode.insertBefore(helpButton, existingActions);
-                    helpButton.classList.add('me-2');
-                } else {
-                    header.appendChild(helpButton);
-                }
-            }
-        }
-    }
-
-    showTableHelp() {
-        const helpModal = document.createElement('div');
-        helpModal.className = 'confirmation-overlay';
-        helpModal.innerHTML = `
-            <div class="confirmation-dialog" style="max-width: 600px;">
-                <div class="d-flex align-items-center justify-content-between mb-3">
-                    <h5 class="mb-0"><i class="bi bi-table me-2"></i>Table Features</h5>
-                    <button type="button" class="btn-close" aria-label="Close"></button>
-                </div>
-                <div class="row">
-                    <div class="col-md-6">
-                        <h6>Sorting</h6>
-                        <p class="small">Click any column header to sort the data. Click again to reverse the order.</p>
-                        
-                        <h6>Navigation</h6>
-                        <p class="small">Use Tab to move between table elements. Arrow keys navigate within the table.</p>
-                    </div>
-                    <div class="col-md-6">
-                        <h6>Visual Cues</h6>
-                        <ul class="small">
-                            <li>Green amounts = Income/Positive</li>
-                            <li>Red amounts = Expenses/Negative</li>
-                            <li>Color dots = Category indicators</li>
-                            <li>Progress bars = Budget usage</li>
-                        </ul>
-                    </div>
-                </div>
-                <div class="mt-3 pt-3 border-top">
-                    <h6>Pro Tips</h6>
-                    <ul class="small mb-0">
-                        <li>Hover over rows for additional details</li>
-                        <li>Look for badges and icons for status information</li>
-                        <li>Use filters and search to find specific data</li>
-                    </ul>
-                </div>
-            </div>
-        `;
-
-        const closeBtn = helpModal.querySelector('.btn-close');
-        closeBtn.addEventListener('click', () => helpModal.remove());
-
-        helpModal.addEventListener('click', (e) => {
-            if (e.target === helpModal) helpModal.remove();
-        });
-
-        document.body.appendChild(helpModal);
     }
 
     // Enhance form labels with better descriptions

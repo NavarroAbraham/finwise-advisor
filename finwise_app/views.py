@@ -5,6 +5,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import User
 from django.core.files.uploadedfile import UploadedFile
+from django.core.mail import send_mail
 from django.http import JsonResponse
 from django.db.models import Sum, Q
 from django.utils import timezone
@@ -14,7 +15,7 @@ from decimal import Decimal
 from .services.ofx_importer import import_ofx
 from .services.ofx_importer_alternative import import_ofx_alternative
 from .services.categorization_service import TransactionCategorizationService, create_default_categories
-from .models import Account, Transaction, Category, Budget, Bill
+from .models import Account, Transaction, Category, Budget, Bill, AccountRecoveryCode
 
 def home(request):
     return render(request, 'finwise_app/home.html')
@@ -31,6 +32,163 @@ def login_view(request):
             return redirect(next_url)
         messages.error(request, "Invalid credentials.")
     return render(request, 'finwise_app/login.html')
+
+
+@require_http_methods(["GET", "POST"])
+def recover_request(request):
+    """Step 1: Request recovery code by email"""
+    if request.method == "POST":
+        email = (request.POST.get("email") or "").strip().lower()
+        if not email:
+            messages.error(request, "Please enter your email address.")
+            return render(request, 'finwise_app/recover_request.html')
+
+        # Don't reveal whether the email exists
+        user = User.objects.filter(email__iexact=email).first()
+        if user:
+            # Simple rate limit: max 5 codes per hour per user
+            one_hour_ago = timezone.now() - timedelta(hours=1)
+            recent_codes = AccountRecoveryCode.objects.filter(user=user, created_at__gte=one_hour_ago).count()
+            if recent_codes < 5:
+                code = AccountRecoveryCode.generate_code()
+                expires_at = timezone.now() + timedelta(minutes=15)
+                AccountRecoveryCode.objects.create(
+                    user=user,
+                    email=email,
+                    code=code,
+                    expires_at=expires_at,
+                )
+                try:
+                    send_mail(
+                        subject="Your FinWise recovery code",
+                        message=(
+                            f"Hi {user.username},\n\n"
+                            f"Your account recovery code is: {code}\n"
+                            f"This code will expire in 15 minutes.\n\n"
+                            f"If you didn't request this, you can ignore this email."
+                        ),
+                        from_email=None,  # uses DEFAULT_FROM_EMAIL
+                        recipient_list=[email],
+                        fail_silently=True,
+                    )
+                except Exception:
+                    # We silently ignore email errors for security; user gets a generic message below
+                    pass
+
+        messages.success(
+            request,
+            "If an account with that email exists, a 6-digit code has been sent. Please check your inbox."
+        )
+        # Store email in session for convenience on next step (not security sensitive)
+        request.session['recover_email_prefill'] = email
+        return redirect('recover_verify')
+
+    return render(request, 'finwise_app/recover_request.html')
+
+
+@require_http_methods(["GET", "POST"])
+def recover_verify(request):
+    """Step 2: Verify the recovery code"""
+    prefill_email = request.session.get('recover_email_prefill', '')
+    if request.method == "POST":
+        email = (request.POST.get("email") or "").strip().lower()
+        code = (request.POST.get("code") or "").strip()
+
+        # Generic error to avoid information leakage
+        generic_error = "Invalid or expired code. Please request a new one."
+
+        user = User.objects.filter(email__iexact=email).first()
+        if not user:
+            messages.error(request, generic_error)
+            return render(request, 'finwise_app/recover_verify.html', {"prefill_email": email})
+
+        recovery = AccountRecoveryCode.objects.filter(
+            user=user, email__iexact=email, code=code, is_used=False
+        ).order_by('-created_at').first()
+
+        if not recovery:
+            messages.error(request, generic_error)
+            return render(request, 'finwise_app/recover_verify.html', {"prefill_email": email})
+
+        # Check expiry and attempts
+        if recovery.is_expired():
+            messages.error(request, generic_error)
+            return render(request, 'finwise_app/recover_verify.html', {"prefill_email": email})
+
+        if recovery.attempts >= 5:
+            messages.error(request, generic_error)
+            return render(request, 'finwise_app/recover_verify.html', {"prefill_email": email})
+
+        # If code mismatched (extra safety even though we queried by code)
+        if recovery.code != code:
+            recovery.attempts += 1
+            recovery.save(update_fields=["attempts"])
+            messages.error(request, generic_error)
+            return render(request, 'finwise_app/recover_verify.html', {"prefill_email": email})
+
+        # Mark used and allow password reset
+        recovery.is_used = True
+        recovery.save(update_fields=["is_used"])
+
+        # Store session for password reset step with short-lived timestamp
+        request.session['recovery_user_id'] = user.id
+        request.session['recovery_verified_at'] = timezone.now().isoformat()
+        return redirect('recover_reset_password')
+
+    return render(request, 'finwise_app/recover_verify.html', {"prefill_email": prefill_email})
+
+
+@require_http_methods(["GET", "POST"])
+def recover_reset_password(request):
+    """Step 3: Reset password after successful code verification"""
+    user_id = request.session.get('recovery_user_id')
+    verified_at_str = request.session.get('recovery_verified_at')
+
+    if not user_id or not verified_at_str:
+        messages.error(request, "Your recovery session has expired. Please request a new code.")
+        return redirect('recover_request')
+
+    # Check that verification time is not too old (15 minutes grace)
+    try:
+        verified_at = datetime.fromisoformat(verified_at_str)
+    except Exception:
+        verified_at = None
+
+    if not verified_at or (timezone.now() - verified_at) > timedelta(minutes=15):
+        # Clear session
+        request.session.pop('recovery_user_id', None)
+        request.session.pop('recovery_verified_at', None)
+        messages.error(request, "Your recovery session has expired. Please request a new code.")
+        return redirect('recover_request')
+
+    user = get_object_or_404(User, id=user_id)
+
+    if request.method == "POST":
+        new_password = request.POST.get('new_password', '')
+        confirm_password = request.POST.get('confirm_password', '')
+
+        if len(new_password) < 8:
+            messages.error(request, "Password must be at least 8 characters long.")
+            return render(request, 'finwise_app/recover_reset_password.html')
+        if new_password != confirm_password:
+            messages.error(request, "Passwords do not match.")
+            return render(request, 'finwise_app/recover_reset_password.html')
+
+        user.set_password(new_password)
+        user.save()
+
+        # Clean up session
+        request.session.pop('recovery_user_id', None)
+        request.session.pop('recovery_verified_at', None)
+
+        # Log the user in automatically after reset
+        user = authenticate(request, username=user.username, password=new_password)
+        if user:
+            login(request, user)
+        messages.success(request, "Your password has been reset.")
+        return redirect('dashboard')
+
+    return render(request, 'finwise_app/recover_reset_password.html')
 
 
 @require_http_methods(["GET", "POST"])
@@ -380,6 +538,143 @@ def budget_api_data(request):
     return JsonResponse({
         'budgets': budget_data,
         'month': current_month.strftime('%B %Y')
+    })
+
+
+@login_required
+def spending_by_category_api(request):
+    """API endpoint for spending by category chart"""
+    days = int(request.GET.get('days', 30))
+    cutoff_date = timezone.now() - timedelta(days=days)
+    
+    # Get spending by category
+    category_spending = Transaction.objects.filter(
+        account__user=request.user,
+        posted_date__gte=cutoff_date,
+        amount__lt=0,  # Only expenses
+        category__isnull=False
+    ).values(
+        'category__name', 'category__color'
+    ).annotate(
+        total=Sum('amount')
+    ).order_by('total')
+    
+    categories = []
+    amounts = []
+    colors = []
+    
+    for item in category_spending:
+        categories.append(item['category__name'])
+        amounts.append(float(abs(item['total'])))
+        colors.append(item['category__color'] or '#6366F1')
+    
+    return JsonResponse({
+        'categories': categories,
+        'amounts': amounts,
+        'colors': colors,
+        'period_days': days
+    })
+
+
+@login_required
+def spending_trend_api(request):
+    """API endpoint for spending trend over time"""
+    from django.db.models.functions import TruncDate
+    
+    days = int(request.GET.get('days', 30))
+    cutoff_date = timezone.now() - timedelta(days=days)
+    
+    # Get daily spending using TruncDate (database-agnostic)
+    daily_spending = Transaction.objects.filter(
+        account__user=request.user,
+        posted_date__gte=cutoff_date,
+        amount__lt=0  # Only expenses
+    ).annotate(
+        day=TruncDate('posted_date')
+    ).values('day').annotate(
+        total=Sum('amount')
+    ).order_by('day')
+    
+    dates = []
+    amounts = []
+    
+    for item in daily_spending:
+        if item['day']:  # Check if day is not None
+            dates.append(item['day'].strftime('%Y-%m-%d'))
+            amounts.append(float(abs(item['total'] or 0)))
+    
+    return JsonResponse({
+        'dates': dates,
+        'amounts': amounts,
+        'period_days': days
+    })
+
+
+@login_required
+def income_vs_expenses_api(request):
+    """API endpoint for income vs expenses comparison"""
+    months = int(request.GET.get('months', 6))
+    
+    # Calculate the starting month
+    current_date = date.today()
+    start_date = (current_date - timedelta(days=30 * months)).replace(day=1)
+    
+    # Get monthly income and expenses
+    monthly_data = []
+    current = start_date
+    
+    while current <= current_date:
+        # Calculate next month
+        if current.month == 12:
+            next_month = date(current.year + 1, 1, 1)
+        else:
+            next_month = date(current.year, current.month + 1, 1)
+        
+        # Get transactions for this month
+        income = Transaction.objects.filter(
+            account__user=request.user,
+            posted_date__gte=datetime.combine(current, datetime.min.time()),
+            posted_date__lt=datetime.combine(next_month, datetime.min.time()),
+            amount__gt=0
+        ).aggregate(total=Sum('amount'))['total'] or Decimal('0')
+        
+        expenses = Transaction.objects.filter(
+            account__user=request.user,
+            posted_date__gte=datetime.combine(current, datetime.min.time()),
+            posted_date__lt=datetime.combine(next_month, datetime.min.time()),
+            amount__lt=0
+        ).aggregate(total=Sum('amount'))['total'] or Decimal('0')
+        
+        monthly_data.append({
+            'month': current.strftime('%b %Y'),
+            'income': float(income),
+            'expenses': float(abs(expenses))
+        })
+        
+        current = next_month
+    
+    return JsonResponse({
+        'data': monthly_data
+    })
+
+
+@login_required
+def account_balance_api(request):
+    """API endpoint for account balance distribution"""
+    accounts = Account.objects.filter(user=request.user)
+    
+    account_data = []
+    for account in accounts:
+        balance = account.transactions.aggregate(total=Sum('amount'))['total'] or Decimal('0')
+        if balance != 0:  # Only include accounts with balance
+            account_data.append({
+                'name': account.name or account.account_id,
+                'balance': float(balance),
+                'type': account.get_type_display()
+            })
+    
+    return JsonResponse({
+        'accounts': account_data
     })
 
 

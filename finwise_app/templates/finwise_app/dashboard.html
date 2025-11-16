@@ -129,10 +129,26 @@
 					<table class="table table-enhanced mb-0">
 						<thead>
 							<tr>
-								<th><i class="bi bi-person-badge me-1"></i>Name</th>
-								<th><i class="bi bi-credit-card me-1"></i>Type</th>
-								<th><i class="bi bi-building me-1"></i>Bank ID</th>
-								<th><i class="bi bi-hash me-1"></i>Account ID</th>
+								<th>
+									<i class="bi bi-person-badge me-1"></i>Name
+									<i class="bi bi-question-circle-fill ms-1 text-muted" style="font-size: 0.85rem; cursor: help;" 
+									   title="The name you've given to this account" data-bs-toggle="tooltip"></i>
+								</th>
+								<th>
+									<i class="bi bi-credit-card me-1"></i>Type
+									<i class="bi bi-question-circle-fill ms-1 text-muted" style="font-size: 0.85rem; cursor: help;" 
+									   title="Account type: Checking, Savings, or Credit Card" data-bs-toggle="tooltip"></i>
+								</th>
+								<th>
+									<i class="bi bi-building me-1"></i>Bank ID
+									<i class="bi bi-question-circle-fill ms-1 text-muted" style="font-size: 0.85rem; cursor: help;" 
+									   title="Your financial institution's routing number" data-bs-toggle="tooltip"></i>
+								</th>
+								<th>
+									<i class="bi bi-hash me-1"></i>Account ID
+									<i class="bi bi-question-circle-fill ms-1 text-muted" style="font-size: 0.85rem; cursor: help;" 
+									   title="Unique identifier for this account" data-bs-toggle="tooltip"></i>
+								</th>
 							</tr>
 						</thead>
 						<tbody>
@@ -165,21 +181,44 @@
 						<span class="badge bg-info">Filtered</span>
 					{% endif %}
 				</span>
-				<a href="{% url 'categories' %}" class="btn btn-sm btn-outline-secondary">
-					<i class="bi bi-tags me-1"></i>Categories
-				</a>
+				<div>
+					<a href="{% url 'categories' %}" class="btn btn-sm btn-outline-secondary">
+						<i class="bi bi-tags me-1"></i>Categories
+					</a>
+				</div>
 			</div>
 			<div class="card-body p-0">
+				
 				{% if recent %}
 				<div class="table-responsive">
-					<table class="table table-enhanced mb-0">
+					<table class="table table-enhanced mb-0" id="transactionsTable">
 						<thead>
 							<tr>
-								<th><i class="bi bi-calendar3 me-1"></i>Date</th>
-								<th><i class="bi bi-bank me-1"></i>Account</th>
-								<th><i class="bi bi-tag me-1"></i>Category</th>
-								<th class="text-end"><i class="bi bi-currency-dollar me-1"></i>Amount</th>
-								<th><i class="bi bi-file-text me-1"></i>Description</th>
+								<th>
+									<i class="bi bi-calendar3 me-1"></i>Date
+									<i class="bi bi-question-circle-fill ms-1 text-muted" style="font-size: 0.85rem; cursor: help;" 
+									   title="Date when the transaction was posted" data-bs-toggle="tooltip"></i>
+								</th>
+								<th>
+									<i class="bi bi-bank me-1"></i>Account
+									<i class="bi bi-question-circle-fill ms-1 text-muted" style="font-size: 0.85rem; cursor: help;" 
+									   title="The account where this transaction occurred" data-bs-toggle="tooltip"></i>
+								</th>
+								<th>
+									<i class="bi bi-tag me-1"></i>Category
+									<i class="bi bi-question-circle-fill ms-1 text-muted" style="font-size: 0.85rem; cursor: help;" 
+									   title="Transaction category for organizing expenses" data-bs-toggle="tooltip"></i>
+								</th>
+								<th class="text-end">
+									<i class="bi bi-currency-dollar me-1"></i>Amount
+									<i class="bi bi-question-circle-fill ms-1 text-muted" style="font-size: 0.85rem; cursor: help;" 
+									   title="Transaction amount (red = expense, green = income)" data-bs-toggle="tooltip"></i>
+								</th>
+								<th>
+									<i class="bi bi-file-text me-1"></i>Description
+									<i class="bi bi-question-circle-fill ms-1 text-muted" style="font-size: 0.85rem; cursor: help;" 
+									   title="Transaction description or merchant name" data-bs-toggle="tooltip"></i>
+								</th>
 							</tr>
 						</thead>
 						<tbody>
@@ -221,4 +260,92 @@
 		</div>
 	</div>
 </div>
+
+<!-- Interactive Charts Section -->
+<div class="row mt-4">
+	<div class="col-12 mb-3">
+		<h4 class="mb-3"><i class="bi bi-graph-up me-2"></i>Financial Insights</h4>
+	</div>
+
+	<!-- Spending by Category Chart -->
+	<div class="col-lg-6 mb-4">
+		<div class="card">
+			<div class="card-header d-flex justify-content-between align-items-center">
+				<span><i class="bi bi-pie-chart me-2"></i>Spending by Category</span>
+				<select class="form-select form-select-sm" style="width: auto;" id="categoryChartPeriod" onchange="finWiseCharts.reloadChart('spendingByCategory', this.value)">
+					<option value="7">Last 7 days</option>
+					<option value="30" selected>Last 30 days</option>
+					<option value="90">Last 90 days</option>
+				</select>
+			</div>
+			<div class="card-body">
+				<div style="height: 300px; position: relative;">
+					<canvas id="spendingByCategoryChart"></canvas>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<!-- Spending Trend Chart -->
+	<div class="col-lg-6 mb-4">
+		<div class="card">
+			<div class="card-header d-flex justify-content-between align-items-center">
+				<span><i class="bi bi-graph-up me-2"></i>Spending Trend</span>
+				<select class="form-select form-select-sm" style="width: auto;" id="trendChartPeriod" onchange="finWiseCharts.reloadChart('spendingTrend', this.value)">
+					<option value="7">Last 7 days</option>
+					<option value="30" selected>Last 30 days</option>
+					<option value="90">Last 90 days</option>
+				</select>
+			</div>
+			<div class="card-body">
+				<div style="height: 300px; position: relative;">
+					<canvas id="spendingTrendChart"></canvas>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<!-- Income vs Expenses Chart -->
+	<div class="col-lg-8 mb-4">
+		<div class="card">
+			<div class="card-header d-flex justify-content-between align-items-center">
+				<span><i class="bi bi-bar-chart me-2"></i>Income vs Expenses</span>
+				<select class="form-select form-select-sm" style="width: auto;" id="incomeExpensesPeriod" onchange="finWiseCharts.reloadChart('incomeVsExpenses', this.value)">
+					<option value="3">Last 3 months</option>
+					<option value="6" selected>Last 6 months</option>
+					<option value="12">Last 12 months</option>
+				</select>
+			</div>
+			<div class="card-body">
+				<div style="height: 350px; position: relative;">
+					<canvas id="incomeVsExpensesChart"></canvas>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<!-- Account Balance Chart -->
+	<div class="col-lg-4 mb-4">
+		<div class="card">
+			<div class="card-header">
+				<span><i class="bi bi-wallet2 me-2"></i>Account Balances</span>
+			</div>
+			<div class="card-body">
+				<div style="height: 350px; position: relative;">
+					<canvas id="accountBalanceChart"></canvas>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+	// Initialize Bootstrap tooltips
+	const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+	const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl));
+});
+</script>
 {% endblock %}

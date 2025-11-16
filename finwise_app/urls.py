@@ -8,13 +8,23 @@ urlpatterns = [
     path('dashboard/', views.dashboard, name='dashboard'),
     path('import/', views.import_transactions, name='import_transactions'),
     path('logout/', views.logout_view, name='logout'),
+    # Account recovery
+    path('recover/', views.recover_request, name='recover_request'),
+    path('recover/verify/', views.recover_verify, name='recover_verify'),
+    path('recover/reset-password/', views.recover_reset_password, name='recover_reset_password'),
     
     # Budget management (FR05)
     path('budgets/', views.budgets_view, name='budgets'),
     path('budgets/create/', views.create_budget, name='create_budget'),
     path('budgets/<int:budget_id>/update/', views.update_budget, name='update_budget'),
     path('budgets/<int:budget_id>/delete/', views.delete_budget, name='delete_budget'),
+    
+    # API endpoints for charts
     path('api/budgets/', views.budget_api_data, name='budget_api_data'),
+    path('api/spending-by-category/', views.spending_by_category_api, name='spending_by_category_api'),
+    path('api/spending-trend/', views.spending_trend_api, name='spending_trend_api'),
+    path('api/income-vs-expenses/', views.income_vs_expenses_api, name='income_vs_expenses_api'),
+    path('api/account-balance/', views.account_balance_api, name='account_balance_api'),
     
     # Category management
     path('categories/', views.categories_view, name='categories'),

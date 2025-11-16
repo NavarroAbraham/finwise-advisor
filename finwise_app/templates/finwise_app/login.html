@@ -31,11 +31,18 @@
         </form>
       </div>
       <div class="card-footer text-center">
-        <p class="mb-0">Don't have an account? 
-          <a href="{% url 'register' %}" class="text-decoration-none">
-            <i class="bi bi-person-plus me-1"></i>Create Account
-          </a>
-        </p>
+        <div class="d-flex flex-column gap-1">
+          <p class="mb-0">Don't have an account? 
+            <a href="{% url 'register' %}" class="text-decoration-none">
+              <i class="bi bi-person-plus me-1"></i>Create Account
+            </a>
+          </p>
+          <p class="mb-0">
+            <a href="{% url 'recover_request' %}" class="text-decoration-none">
+              <i class="bi bi-shield-lock me-1"></i>Forgot password? Recover with code
+            </a>
+          </p>
+        </div>
       </div>
     </div>
   </div>

@@ -344,3 +344,34 @@ class Bill(models.Model):
 		}
 		return frequency_short.get(self.frequency, self.frequency)
 
+
+class AccountRecoveryCode(models.Model):
+	"""One-time recovery codes for account email verification/password reset"""
+	user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="recovery_codes")
+	email = models.EmailField()
+	code = models.CharField(max_length=6)
+	created_at = models.DateTimeField(auto_now_add=True)
+	expires_at = models.DateTimeField()
+	is_used = models.BooleanField(default=False)
+	attempts = models.PositiveIntegerField(default=0)
+
+	class Meta:
+		indexes = [
+			models.Index(fields=["user", "email", "code", "is_used"]),
+		]
+		ordering = ["-created_at"]
+
+	def __str__(self) -> str:
+		return f"RecoveryCode(user={self.user.username}, email={self.email}, code=******)"
+
+	def is_expired(self) -> bool:
+		from django.utils import timezone
+		return timezone.now() >= self.expires_at
+
+	@staticmethod
+	def generate_code() -> str:
+		"""Generate a 6-digit numeric code as string"""
+		from random import SystemRandom
+		rnd = SystemRandom()
+		return f"{rnd.randrange(0, 10**6):06d}"
+

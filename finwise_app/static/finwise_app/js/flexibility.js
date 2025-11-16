@@ -3,14 +3,12 @@
 class FlexibilityManager {
     constructor() {
         this.bulkSelection = new Set();
-        this.quickActions = [];
         this.userPreferences = this.loadUserPreferences();
         this.init();
     }
 
     init() {
         this.addBulkActions();
-        this.implementQuickActions();
         this.addAdvancedSearch();
         this.createCustomShortcuts();
         this.addDragAndDrop();
@@ -240,250 +238,6 @@ class FlexibilityManager {
         selectedRows.forEach(row => row.classList.remove('table-selected'));
 
         this.updateBulkActionBar();
-    }
-
-    // Quick actions floating button
-    implementQuickActions() {
-        this.createQuickActionFAB();
-        this.addQuickActionItems();
-    }
-
-    createQuickActionFAB() {
-        const quickActions = document.createElement('div');
-        quickActions.className = 'quick-actions';
-        quickActions.innerHTML = `
-            <button class="btn btn-primary quick-action-fab" id="quick-actions-toggle" 
-                    title="Quick Actions" data-bs-toggle="tooltip">
-                <i class="bi bi-lightning-fill"></i>
-            </button>
-            <div class="quick-action-menu" id="quick-action-menu" style="display: none;">
-                <button class="btn btn-success quick-action-fab" onclick="window.flexibilityManager.quickImport()" 
-                        title="Quick Import" data-bs-toggle="tooltip">
-                    <i class="bi bi-upload"></i>
-                </button>
-                <button class="btn btn-info quick-action-fab" onclick="window.flexibilityManager.quickAdd()" 
-                        title="Quick Add" data-bs-toggle="tooltip">
-                    <i class="bi bi-plus"></i>
-                </button>
-                <button class="btn btn-warning quick-action-fab" onclick="window.flexibilityManager.quickExport()" 
-                        title="Quick Export" data-bs-toggle="tooltip">
-                    <i class="bi bi-download"></i>
-                </button>
-            </div>
-        `;
-
-        document.body.appendChild(quickActions);
-
-        // Toggle menu
-        document.getElementById('quick-actions-toggle').addEventListener('click', () => {
-            this.toggleQuickActionMenu();
-        });
-
-        // Close menu when clicking outside
-        document.addEventListener('click', (e) => {
-            if (!e.target.closest('.quick-actions')) {
-                this.closeQuickActionMenu();
-            }
-        });
-    }
-
-    toggleQuickActionMenu() {
-        const menu = document.getElementById('quick-action-menu');
-        const isVisible = menu.style.display !== 'none';
-        
-        if (isVisible) {
-            this.closeQuickActionMenu();
-        } else {
-            this.openQuickActionMenu();
-        }
-    }
-
-    openQuickActionMenu() {
-        const menu = document.getElementById('quick-action-menu');
-        menu.style.display = 'block';
-        
-        // Animate buttons in
-        const buttons = menu.querySelectorAll('.quick-action-fab');
-        buttons.forEach((button, index) => {
-            setTimeout(() => {
-                button.style.transform = 'scale(1)';
-                button.style.opacity = '1';
-            }, index * 100);
-        });
-    }
-
-    closeQuickActionMenu() {
-        const menu = document.getElementById('quick-action-menu');
-        menu.style.display = 'none';
-        
-        // Reset button styles
-        const buttons = menu.querySelectorAll('.quick-action-fab');
-        buttons.forEach(button => {
-            button.style.transform = 'scale(0)';
-            button.style.opacity = '0';
-        });
-    }
-
-    addQuickActionItems() {
-        // Quick action implementations
-        this.quickActions = [
-            {
-                key: 'i',
-                action: () => this.quickImport(),
-                description: 'Quick Import'
-            },
-            {
-                key: 'e',
-                action: () => this.quickExport(),
-                description: 'Quick Export'
-            },
-            {
-                key: 'a',
-                action: () => this.quickAdd(),
-                description: 'Quick Add'
-            }
-        ];
-
-        // Add keyboard shortcuts
-        document.addEventListener('keydown', (e) => {
-            if (e.ctrlKey && e.shiftKey) {
-                const action = this.quickActions.find(qa => qa.key === e.key.toLowerCase());
-                if (action) {
-                    e.preventDefault();
-                    action.action();
-                }
-            }
-        });
-    }
-
-    quickImport() {
-        window.location.href = '/import/';
-    }
-
-    quickAdd() {
-        // Quick add functionality - could open a modal for adding transactions/categories/budgets
-        this.showQuickAddDialog();
-    }
-
-    showQuickAddDialog() {
-        const currentPath = window.location.pathname;
-        let addType = 'item';
-        let addOptions = '';
-
-        if (currentPath.includes('budget')) {
-            addType = 'budget';
-            addOptions = `
-                <option value="budget">New Budget</option>
-                <option value="category">New Category</option>
-            `;
-        } else if (currentPath.includes('categor')) {
-            addType = 'category';
-            addOptions = `
-                <option value="category">New Category</option>
-                <option value="budget">New Budget</option>
-            `;
-        } else {
-            addOptions = `
-                <option value="transaction">Import Transactions</option>
-                <option value="category">New Category</option>
-                <option value="budget">New Budget</option>
-            `;
-        }
-
-        const dialog = document.createElement('div');
-        dialog.className = 'confirmation-overlay';
-        dialog.innerHTML = `
-            <div class="confirmation-dialog">
-                <h5><i class="bi bi-plus-circle me-2"></i>Quick Add</h5>
-                <p>What would you like to add?</p>
-                <select class="form-select mb-3" id="quick-add-select">
-                    ${addOptions}
-                </select>
-                <div class="d-flex gap-2 justify-content-end">
-                    <button class="btn btn-secondary cancel-btn">Cancel</button>
-                    <button class="btn btn-primary add-btn">Add</button>
-                </div>
-            </div>
-        `;
-
-        dialog.querySelector('.cancel-btn').onclick = () => dialog.remove();
-        dialog.querySelector('.add-btn').onclick = () => {
-            const selected = dialog.querySelector('#quick-add-select').value;
-            this.executeQuickAdd(selected);
-            dialog.remove();
-        };
-
-        document.body.appendChild(dialog);
-    }
-
-    executeQuickAdd(type) {
-        switch (type) {
-            case 'transaction':
-                window.location.href = '/import/';
-                break;
-            case 'category':
-                window.location.href = '/categories/';
-                break;
-            case 'budget':
-                window.location.href = '/budgets/';
-                break;
-        }
-    }
-
-    quickExport() {
-        this.showQuickExportDialog();
-    }
-
-    showQuickExportDialog() {
-        const dialog = document.createElement('div');
-        dialog.className = 'confirmation-overlay';
-        dialog.innerHTML = `
-            <div class="confirmation-dialog">
-                <h5><i class="bi bi-download me-2"></i>Quick Export</h5>
-                <p>Select data to export:</p>
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="export-transactions" checked>
-                    <label class="form-check-label" for="export-transactions">
-                        Recent Transactions
-                    </label>
-                </div>
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="export-categories">
-                    <label class="form-check-label" for="export-categories">
-                        Categories
-                    </label>
-                </div>
-                <div class="form-check mb-3">
-                    <input class="form-check-input" type="checkbox" id="export-budgets">
-                    <label class="form-check-label" for="export-budgets">
-                        Budget Information
-                    </label>
-                </div>
-                <div class="d-flex gap-2 justify-content-end">
-                    <button class="btn btn-secondary cancel-btn">Cancel</button>
-                    <button class="btn btn-primary export-btn">Export</button>
-                </div>
-            </div>
-        `;
-
-        dialog.querySelector('.cancel-btn').onclick = () => dialog.remove();
-        dialog.querySelector('.export-btn').onclick = () => {
-            const selected = [];
-            if (dialog.querySelector('#export-transactions').checked) selected.push('transactions');
-            if (dialog.querySelector('#export-categories').checked) selected.push('categories');
-            if (dialog.querySelector('#export-budgets').checked) selected.push('budgets');
-            
-            if (selected.length > 0) {
-                window.FinWise.AlertManager.showToast(
-                    `Exporting ${selected.join(', ')}...`, 
-                    'info', 
-                    3000
-                );
-            }
-            dialog.remove();
-        };
-
-        document.body.appendChild(dialog);
     }
 
     // Advanced search functionality
@@ -955,7 +709,7 @@ class FlexibilityManager {
         window.URL.revokeObjectURL(url);
     }
 
-    // Quick access toolbar
+    // Quick access toolbar (reduced: removed deprecated Quick Import/Add)
     createQuickAccessToolbar() {
         const toolbar = document.createElement('div');
         toolbar.className = 'quick-access-toolbar position-fixed d-none d-lg-block';
@@ -968,14 +722,6 @@ class FlexibilityManager {
 
         toolbar.innerHTML = `
             <div class="d-flex flex-column gap-2">
-                <button class="btn btn-primary btn-sm" onclick="window.flexibilityManager.quickImport()" 
-                        title="Quick Import (Ctrl+Shift+I)" data-bs-toggle="tooltip" data-bs-placement="right">
-                    <i class="bi bi-upload"></i>
-                </button>
-                <button class="btn btn-success btn-sm" onclick="window.flexibilityManager.quickAdd()" 
-                        title="Quick Add (Ctrl+Shift+A)" data-bs-toggle="tooltip" data-bs-placement="right">
-                    <i class="bi bi-plus"></i>
-                </button>
                 <button class="btn btn-info btn-sm" onclick="window.flexibilityManager.toggleDarkMode()" 
                         title="Toggle Theme" data-bs-toggle="tooltip" data-bs-placement="right">
                     <i class="bi bi-moon"></i>
@@ -1017,7 +763,7 @@ class FlexibilityManager {
 
     addAdvancedShortcuts() {
         document.addEventListener('keydown', (e) => {
-            // Ctrl+Shift shortcuts for power users
+            // Ctrl+Shift shortcuts for power users (trimmed)
             if (e.ctrlKey && e.shiftKey) {
                 switch (e.key.toLowerCase()) {
                     case 'f':
@@ -1027,10 +773,6 @@ class FlexibilityManager {
                     case 's':
                         e.preventDefault();
                         this.selectAll();
-                        break;
-                    case 'e':
-                        e.preventDefault();
-                        this.quickExport();
                         break;
                     case 'c':
                         e.preventDefault();
